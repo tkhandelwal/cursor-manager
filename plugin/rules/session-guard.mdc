@@ -1,0 +1,11 @@
+---
+description: Cap concurrent agents and rotate chats before memory bloats
+alwaysApply: true
+---
+
+# Cursor Manager
+
+- Do not start more than 5 concurrent agents. If a sixth is needed, stop or finish the oldest first.
+- When a task is done, or the chat is long (about 20 messages, 45 minutes, or a full context ring), tell the user to start a new chat with Cmd/Ctrl+N.
+- If quality is dropping, summarize the handoff in 5 bullets, then ask them to open a fresh chat.
+- Never invent a Cursor setting that auto-deletes IDE chats. Recommend Command Palette → Developer: Delete Old Chats for local history cleanup.

@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "node plugin/scripts/session-start.mjs"
+      }
+    ],
+    "sessionEnd": [
+      {
+        "command": "node plugin/scripts/session-end.mjs"
+      }
+    ],
+    "preCompact": [
+      {
+        "command": "node plugin/scripts/pre-compact.mjs"
+      }
+    ]
+  }
+}

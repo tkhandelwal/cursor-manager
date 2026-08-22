@@ -1,0 +1,10 @@
+{
+  "name": "cursor-manager",
+  "version": "1.0.0",
+  "description": "Cursor on steroids: hidden settings, memory cleanup, 5-agent cap, and rotate-chat reminders.",
+  "author": {
+    "name": "Cursor Manager"
+  },
+  "keywords": ["memory", "agents", "hooks", "hygiene"],
+  "license": "MIT"
+}

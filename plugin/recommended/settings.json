@@ -1,0 +1,9 @@
+{
+  "cursor.worktreeMaxCount": 25,
+  "cursor.worktreeCleanupIntervalHours": 6,
+  "cursor.worktreesGlobalMaxSizeGb": 0,
+  "git.showCursorWorktrees": true,
+  "cursor.composer.usageSummaryDisplay": "always",
+  "cursor.composer.textSizeScale": 1,
+  "cursor.general.disableHttp2": false
+}
