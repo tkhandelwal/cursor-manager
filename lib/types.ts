@@ -43,6 +43,8 @@ export type EventKind =
   | "notice"
   | "agent-started"
   | "agent-stopped"
+  | "agent-paused"
+  | "agent-resumed"
 
 export type GuardEvent = {
   id: string

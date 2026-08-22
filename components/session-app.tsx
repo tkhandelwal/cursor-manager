@@ -33,6 +33,8 @@ import {
   applyRotation,
   deleteChat,
   nextChatTitle,
+  pauseAgent,
+  resumeAgent,
   rotationReasons,
   runningAgentCount,
   seedState,
@@ -543,7 +545,8 @@ export function SessionApp() {
             <CardHeader>
               <CardTitle>Agents</CardTitle>
               <CardDescription>
-                Launching a sixth agent stops the oldest one. Cap is {settings.maxConcurrentAgents}.
+                Launching a sixth agent stops the oldest one. Pause an agent to free a slot without
+                losing it. Cap is {settings.maxConcurrentAgents}.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -561,16 +564,37 @@ export function SessionApp() {
                         {agent.status} · started {formatTime(agent.startedAt)}
                       </p>
                     </div>
-                    {agent.status === "running" ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setState(stopAgent(state, agent.id))}
-                      >
-                        Stop
-                      </Button>
-                    ) : (
+                    {agent.status === "stopped" ? (
                       <Badge variant="secondary">{agent.status}</Badge>
+                    ) : (
+                      <div className="flex shrink-0 items-center gap-1">
+                        {agent.status === "running" ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setState(pauseAgent(state, agent.id))}
+                          >
+                            <Pause />
+                            Pause
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setState(resumeAgent(state, settings, agent.id))}
+                          >
+                            <Play />
+                            Resume
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setState(stopAgent(state, agent.id))}
+                        >
+                          Stop
+                        </Button>
+                      </div>
                     )}
                   </div>
                 ))
