@@ -66,3 +66,25 @@ export async function saveState(state) {
 export function activeCount(state) {
   return Object.keys(state.conversations).length
 }
+
+export function capMessage(count, settings) {
+  const atCap = count >= settings.maxConcurrentAgents
+  return atCap
+    ? `Cursor Manager: ${count} chats are already tracked (cap ${settings.maxConcurrentAgents}). Tell the user to finish or close an older agent before starting more parallel work.`
+    : `Cursor Manager: ${count}/${settings.maxConcurrentAgents} tracked chats. Start a new chat (Cmd/Ctrl+N) after about ${settings.rotateAfterMessages} messages, 45 minutes, or when the context ring stays full.`
+}
+
+export function statusReport(state, settings) {
+  const count = activeCount(state)
+  const atCap = count >= settings.maxConcurrentAgents
+  const room = Math.max(0, settings.maxConcurrentAgents - count)
+  const lines = [
+    "Cursor Manager status",
+    `- Tracked chats: ${count}/${settings.maxConcurrentAgents}${atCap ? " (at cap)" : ""}`,
+    `- Rotate after: ${settings.rotateAfterMessages} messages / 45 min / full context ring`,
+    atCap
+      ? "- At cap: finish or close an older agent (or /rotate-chat) before starting more parallel work."
+      : `- Room for ${room} more ${room === 1 ? "chat" : "chats"} before the cap.`,
+  ]
+  return lines.join("\n")
+}

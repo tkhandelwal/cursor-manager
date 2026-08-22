@@ -27,6 +27,7 @@ Then run **`/steroids`** in Agent chat to merge hidden `settings.json` keys and 
 | `/hidden-settings` | Merge verified keys into User Settings JSON |
 | `/memory-cleanup` | Walk **Delete Old Chats**, **GC Agent KV Blobs**, Process Explorer |
 | `/rotate-chat` | 5-bullet handoff, then Cmd/Ctrl+N |
+| `/session-status` | Report tracked-chat count vs the cap via `scripts/status.mjs` |
 
 ## Settings in Cursor but not in the UI
 
