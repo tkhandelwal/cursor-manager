@@ -4,7 +4,10 @@ import { useEffect, useMemo, useState } from "react"
 import {
   AlertTriangle,
   Bot,
+  Check,
   Clock3,
+  Copy,
+  Download,
   MessageSquarePlus,
   Pause,
   Play,
@@ -23,6 +26,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
@@ -34,6 +46,7 @@ import {
   deleteChat,
   nextChatTitle,
   pauseAgent,
+  pluginSettingsJson,
   resumeAgent,
   rotationReasons,
   runningAgentCount,
@@ -186,6 +199,46 @@ function ChatCard({
         </Button>
       </div>
     </div>
+  )
+}
+
+function PluginExportDialog({ settings }: { settings: Settings }) {
+  const [copied, setCopied] = useState(false)
+  const json = useMemo(() => pluginSettingsJson(settings), [settings])
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(json)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1500)
+    } catch {
+      setCopied(false)
+    }
+  }
+
+  return (
+    <Dialog onOpenChange={() => setCopied(false)}>
+      <DialogTrigger render={<Button variant="outline" className="w-full" />}>
+        <Download />
+        Export for plugin
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Plugin settings</DialogTitle>
+          <DialogDescription>
+            Save this as <code className="font-mono">~/.cursor/cursor-manager/settings.json</code>. The
+            Cursor Manager hooks read these two values to enforce the cap and rotation reminders.
+          </DialogDescription>
+        </DialogHeader>
+        <pre className="overflow-x-auto rounded-lg bg-muted/60 p-3 font-mono text-xs">{json}</pre>
+        <DialogFooter showCloseButton>
+          <Button onClick={copy}>
+            {copied ? <Check /> : <Copy />}
+            {copied ? "Copied" : "Copy JSON"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -538,6 +591,7 @@ export function SessionApp() {
               >
                 Apply policy now
               </Button>
+              <PluginExportDialog settings={settings} />
             </CardContent>
           </Card>
 

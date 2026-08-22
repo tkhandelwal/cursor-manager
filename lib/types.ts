@@ -12,6 +12,11 @@ export type Settings = {
   useContextTrigger: boolean
 }
 
+export type PluginSettings = {
+  maxConcurrentAgents: number
+  rotateAfterMessages: number
+}
+
 export type ChatStatus = "active" | "rotated" | "deleted"
 
 export type Chat = {

@@ -4,6 +4,7 @@ import {
   type Chat,
   type GuardEvent,
   type GuardState,
+  type PluginSettings,
   type Settings,
 } from "./types"
 
@@ -503,6 +504,17 @@ export function normalizeState(state: GuardState): GuardState {
 
 function finiteOr(value: unknown, fallback: number): number {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback
+}
+
+export function toPluginSettings(settings: Settings): PluginSettings {
+  return {
+    maxConcurrentAgents: settings.maxConcurrentAgents,
+    rotateAfterMessages: settings.rotateAfterMessages,
+  }
+}
+
+export function pluginSettingsJson(settings: Settings): string {
+  return `${JSON.stringify(toPluginSettings(settings), null, 2)}\n`
 }
 
 export function mergeSettings(value: unknown): Settings {
