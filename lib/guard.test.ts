@@ -8,6 +8,7 @@ import {
   isGuardState,
   mergeSettings,
   pauseAgent,
+  pluginSettingsJson,
   pruneChats,
   resumeAgent,
   rotationReasons,
@@ -17,6 +18,7 @@ import {
   startAgent,
   startChat,
   tickMinutes,
+  toPluginSettings,
 } from "./guard"
 import { DEFAULT_SETTINGS } from "./types"
 
@@ -195,4 +197,19 @@ test("isGuardState validates the persisted shape", () => {
   assert.equal(isGuardState(seedState(1_000)), true)
   assert.equal(isGuardState({ chats: [], agents: [] }), false)
   assert.equal(isGuardState(null), false)
+})
+
+test("toPluginSettings maps only the keys the plugin consumes", () => {
+  const settings = { ...DEFAULT_SETTINGS, maxConcurrentAgents: 3, rotateAfterMessages: 15 }
+  assert.deepEqual(toPluginSettings(settings), {
+    maxConcurrentAgents: 3,
+    rotateAfterMessages: 15,
+  })
+})
+
+test("pluginSettingsJson emits valid JSON matching the plugin schema", () => {
+  const settings = { ...DEFAULT_SETTINGS, maxConcurrentAgents: 4, rotateAfterMessages: 25 }
+  const json = pluginSettingsJson(settings)
+  assert.ok(json.endsWith("\n"))
+  assert.deepEqual(JSON.parse(json), { maxConcurrentAgents: 4, rotateAfterMessages: 25 })
 })
