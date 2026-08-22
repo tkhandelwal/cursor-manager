@@ -43,3 +43,6 @@ next-env.d.ts
 
 # visual studio
 .vs/
+
+# build artifacts
+cursor-manager.zip
