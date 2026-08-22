@@ -42,22 +42,16 @@ export function pruneChats(chats: Chat[], keepChatCount: number, now: number): {
   deleted: Chat[]
 } {
   const alive = livingChats(chats).sort((a, b) => b.createdAt - a.createdAt)
-  const keep = alive.slice(0, Math.max(1, keepChatCount))
   const drop = alive.slice(Math.max(1, keepChatCount))
-  const keepIds = new Set(keep.map((chat) => chat.id))
   const deletedIds = new Set(drop.map((chat) => chat.id))
 
   return {
     deleted: drop,
-    chats: chats.map((chat) => {
-      if (deletedIds.has(chat.id)) {
-        return { ...chat, status: "deleted", lastActiveAt: now }
-      }
-      if (keepIds.has(chat.id) || chat.status === "deleted") {
-        return chat
-      }
-      return chat
-    }),
+    chats: chats.map((chat) =>
+      deletedIds.has(chat.id)
+        ? { ...chat, status: "deleted" as const, lastActiveAt: now }
+        : chat,
+    ),
   }
 }
 
@@ -176,6 +170,33 @@ export function applyRotation(
   return next
 }
 
+function enforceRunningCap(
+  agents: Agent[],
+  events: GuardEvent[],
+  settings: Settings,
+  now: number,
+): { agents: Agent[]; capped: boolean } {
+  const running = agents.filter((agent) => agent.status === "running")
+  if (running.length < settings.maxConcurrentAgents) {
+    return { agents, capped: false }
+  }
+
+  const oldest = [...running].sort((a, b) => a.startedAt - b.startedAt)[0]
+  events.unshift(
+    createEvent(
+      "capped",
+      `Capped at ${settings.maxConcurrentAgents} agents. Stopped oldest: “${oldest.name}”.`,
+      now,
+    ),
+  )
+  return {
+    agents: agents.map((agent) =>
+      agent.id === oldest.id ? { ...agent, status: "stopped" } : agent,
+    ),
+    capped: true,
+  }
+}
+
 export function startAgent(
   state: GuardState,
   settings: Settings,
@@ -189,23 +210,8 @@ export function startAgent(
     }
   }
 
-  let agents = [...state.agents]
   const events = [...state.events]
-  const running = agents.filter((agent) => agent.status === "running")
-
-  if (running.length >= settings.maxConcurrentAgents) {
-    const oldest = [...running].sort((a, b) => a.startedAt - b.startedAt)[0]
-    agents = agents.map((agent) =>
-      agent.id === oldest.id ? { ...agent, status: "stopped" } : agent,
-    )
-    events.unshift(
-      createEvent(
-        "capped",
-        `Capped at ${settings.maxConcurrentAgents} agents. Stopped oldest: “${oldest.name}”.`,
-        now,
-      ),
-    )
-  }
+  const { agents: withRoom, capped } = enforceRunningCap(state.agents, events, settings, now)
 
   const agent: Agent = {
     id: createId("agt"),
@@ -215,17 +221,60 @@ export function startAgent(
     status: "running",
   }
 
-  agents = [agent, ...agents]
   events.unshift(createEvent("agent-started", `Started agent “${name}”.`, now))
 
   return {
     ...state,
-    agents,
+    agents: [agent, ...withRoom],
     events: keepEvents(events),
-    notice:
-      running.length >= settings.maxConcurrentAgents
-        ? `Agent cap is ${settings.maxConcurrentAgents}. Oldest agent was stopped to make room.`
-        : state.notice,
+    notice: capped
+      ? `Agent cap is ${settings.maxConcurrentAgents}. Oldest agent was stopped to make room.`
+      : state.notice,
+  }
+}
+
+export function pauseAgent(state: GuardState, agentId: string, now = Date.now()): GuardState {
+  const agent = state.agents.find((item) => item.id === agentId)
+  if (!agent || agent.status !== "running") {
+    return state
+  }
+  return {
+    ...state,
+    agents: state.agents.map((item) =>
+      item.id === agentId ? { ...item, status: "idle" } : item,
+    ),
+    events: keepEvents([
+      createEvent("agent-paused", `Paused agent “${agent.name}”. Freed a slot under the cap.`, now),
+      ...state.events,
+    ]),
+  }
+}
+
+export function resumeAgent(
+  state: GuardState,
+  settings: Settings,
+  agentId: string,
+  now = Date.now(),
+): GuardState {
+  const agent = state.agents.find((item) => item.id === agentId)
+  if (!agent || agent.status !== "idle") {
+    return state
+  }
+
+  const events = [...state.events]
+  const { agents: withRoom, capped } = enforceRunningCap(state.agents, events, settings, now)
+
+  events.unshift(createEvent("agent-resumed", `Resumed agent “${agent.name}”.`, now))
+
+  return {
+    ...state,
+    agents: withRoom.map((item) =>
+      item.id === agentId ? { ...item, status: "running", startedAt: now } : item,
+    ),
+    events: keepEvents(events),
+    notice: capped
+      ? `Agent cap is ${settings.maxConcurrentAgents}. Oldest agent was stopped to make room.`
+      : state.notice,
   }
 }
 
