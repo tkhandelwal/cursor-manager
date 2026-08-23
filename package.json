@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start --hostname 0.0.0.0 --port 43127",
     "lint": "eslint",
-    "test": "npx tsx --test lib/guard.test.ts lib/tweaks.test.ts lib/cursorignore.test.ts components/panels.test.tsx plugin/scripts/lib.test.mjs plugin/scripts/plugin.test.mjs"
+    "test": "npx tsx --import ./test/setup-dom.ts --test lib/guard.test.ts lib/tweaks.test.ts lib/cursorignore.test.ts lib/manual-steps.test.ts components/panels.test.tsx components/interactions.test.tsx plugin/scripts/lib.test.mjs plugin/scripts/plugin.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
@@ -22,12 +22,16 @@
     "tw-animate-css": "^1.4.0"
   },
   "devDependencies": {
+    "@happy-dom/global-registrator": "^20.11.6",
     "@tailwindcss/postcss": "^4",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.2",
+    "happy-dom": "^20.11.6",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
