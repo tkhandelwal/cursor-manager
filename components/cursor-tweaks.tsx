@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { RotateCcw, SlidersHorizontal } from "lucide-react"
+import { RotateCcw, Save, SlidersHorizontal, Trash2 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -16,15 +16,18 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
-import { JsonExportDialog } from "@/components/json-export-dialog"
+import { ExportDialog } from "@/components/export-dialog"
 import { SettingsImportDialog } from "@/components/settings-import-dialog"
-import { loadTweaks, saveTweaks } from "@/lib/storage"
+import { loadPresets, loadTweaks, savePresets, saveTweaks } from "@/lib/storage"
 import {
   TWEAKS,
   buildSettings,
   defaultTweakState,
+  deletePreset,
+  savePreset,
   tweakSettingsJson,
   type TweakDef,
+  type TweakPreset,
   type TweakState,
   type TweakValue,
 } from "@/lib/tweaks"
@@ -99,10 +102,13 @@ function TweakControl({
 export function CursorTweaks() {
   const [hydrated, setHydrated] = useState(false)
   const [tweaks, setTweaks] = useState<TweakState>(defaultTweakState)
+  const [presets, setPresets] = useState<TweakPreset[]>([])
+  const [presetName, setPresetName] = useState("")
 
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- restore localStorage after mount */
     setTweaks(loadTweaks())
+    setPresets(loadPresets())
     setHydrated(true)
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [])
@@ -113,6 +119,13 @@ export function CursorTweaks() {
     }
     saveTweaks(tweaks)
   }, [hydrated, tweaks])
+
+  useEffect(() => {
+    if (!hydrated) {
+      return
+    }
+    savePresets(presets)
+  }, [hydrated, presets])
 
   const includedCount = useMemo(
     () => Object.keys(buildSettings(tweaks)).length,
@@ -177,18 +190,69 @@ export function CursorTweaks() {
           )
         })}
 
+        <div className="space-y-2 border-t pt-3">
+          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Presets</p>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Input
+              value={presetName}
+              placeholder="Name this profile"
+              onChange={(event) => setPresetName(event.target.value)}
+            />
+            <Button
+              variant="secondary"
+              disabled={presetName.trim().length === 0}
+              onClick={() => {
+                setPresets((current) => savePreset(current, presetName, tweaks))
+                setPresetName("")
+              }}
+            >
+              <Save />
+              Save preset
+            </Button>
+          </div>
+          {presets.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No saved profiles yet.</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {presets.map((preset) => (
+                <div
+                  key={preset.name}
+                  className="flex items-center gap-1 rounded-lg border py-1 pr-1 pl-2"
+                >
+                  <button
+                    type="button"
+                    className="text-sm hover:underline"
+                    onClick={() => setTweaks(preset.state)}
+                  >
+                    {preset.name}
+                  </button>
+                  <Button
+                    size="icon-xs"
+                    variant="ghost"
+                    aria-label={`Delete preset ${preset.name}`}
+                    onClick={() => setPresets((current) => deletePreset(current, preset.name))}
+                  >
+                    <Trash2 />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-muted-foreground">
             {includedCount} of {TWEAKS.length} keys will be written.
           </p>
           <div className="flex flex-wrap gap-2">
-            <SettingsImportDialog onApply={(next) => setTweaks(next)} />
+            <SettingsImportDialog current={tweaks} onApply={(next) => setTweaks(next)} />
             <Button variant="ghost" onClick={() => setTweaks(defaultTweakState())}>
               <RotateCcw />
               Reset to recommended
             </Button>
-            <JsonExportDialog
-              json={json}
+            <ExportDialog
+              content={json}
+              copyLabel="Copy JSON"
               title="Cursor settings.json"
               description={
                 <>

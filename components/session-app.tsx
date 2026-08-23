@@ -30,7 +30,8 @@ import { Separator } from "@/components/ui/separator"
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { CursorTweaks } from "@/components/cursor-tweaks"
-import { JsonExportDialog } from "@/components/json-export-dialog"
+import { CursorignoreGenerator } from "@/components/cursorignore-generator"
+import { ExportDialog } from "@/components/export-dialog"
 import {
   addWork,
   applyRotation,
@@ -195,8 +196,9 @@ function ChatCard({
 
 function PluginExportDialog({ settings }: { settings: Settings }) {
   return (
-    <JsonExportDialog
-      json={pluginSettingsJson(settings)}
+    <ExportDialog
+      content={pluginSettingsJson(settings)}
+      copyLabel="Copy JSON"
       title="Plugin settings"
       description={
         <>
@@ -640,6 +642,8 @@ export function SessionApp() {
       </div>
 
       <CursorTweaks />
+
+      <CursorignoreGenerator />
 
       <Card>
         <CardHeader>

@@ -15,22 +15,24 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 
-export function JsonExportDialog({
-  json,
+export function ExportDialog({
+  content,
   title,
   description,
   trigger,
+  copyLabel = "Copy",
 }: {
-  json: string
+  content: string
   title: string
   description: ReactNode
   trigger: ReactNode
+  copyLabel?: string
 }) {
   const [copied, setCopied] = useState(false)
-  const pretty = useMemo(() => json.replace(/\n+$/, ""), [json])
+  const pretty = useMemo(() => content.replace(/\n+$/, ""), [content])
 
   async function copy() {
-    if (await copyText(json)) {
+    if (await copyText(content)) {
       setCopied(true)
       window.setTimeout(() => setCopied(false), 1500)
     }
@@ -50,7 +52,7 @@ export function JsonExportDialog({
         <DialogFooter showCloseButton>
           <Button onClick={copy}>
             {copied ? <Check /> : <Copy />}
-            {copied ? "Copied" : "Copy JSON"}
+            {copied ? "Copied" : copyLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

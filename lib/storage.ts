@@ -1,10 +1,19 @@
 import { DEFAULT_SETTINGS, type GuardState, type Settings } from "./types"
 import { isGuardState, mergeSettings, normalizeState, seedState } from "./guard"
-import { defaultTweakState, mergeTweakState, type TweakState } from "./tweaks"
+import {
+  defaultTweakState,
+  mergePresets,
+  mergeTweakState,
+  type TweakPreset,
+  type TweakState,
+} from "./tweaks"
+import { defaultIgnoreState, mergeIgnoreState, type IgnoreState } from "./cursorignore"
 
 const SETTINGS_KEY = "session-guard:settings"
 const STATE_KEY = "session-guard:state"
 const TWEAKS_KEY = "session-guard:tweaks"
+const PRESETS_KEY = "session-guard:tweak-presets"
+const IGNORE_KEY = "session-guard:cursorignore"
 
 export function loadSettings(): Settings {
   if (typeof window === "undefined") {
@@ -66,4 +75,36 @@ export function loadTweaks(): TweakState {
 
 export function saveTweaks(tweaks: TweakState): void {
   window.localStorage.setItem(TWEAKS_KEY, JSON.stringify(tweaks))
+}
+
+export function loadPresets(): TweakPreset[] {
+  if (typeof window === "undefined") {
+    return []
+  }
+  try {
+    const raw = window.localStorage.getItem(PRESETS_KEY)
+    return raw ? mergePresets(JSON.parse(raw) as unknown) : []
+  } catch {
+    return []
+  }
+}
+
+export function savePresets(presets: TweakPreset[]): void {
+  window.localStorage.setItem(PRESETS_KEY, JSON.stringify(presets))
+}
+
+export function loadIgnore(): IgnoreState {
+  if (typeof window === "undefined") {
+    return defaultIgnoreState()
+  }
+  try {
+    const raw = window.localStorage.getItem(IGNORE_KEY)
+    return raw ? mergeIgnoreState(JSON.parse(raw) as unknown) : defaultIgnoreState()
+  } catch {
+    return defaultIgnoreState()
+  }
+}
+
+export function saveIgnore(ignore: IgnoreState): void {
+  window.localStorage.setItem(IGNORE_KEY, JSON.stringify(ignore))
 }
