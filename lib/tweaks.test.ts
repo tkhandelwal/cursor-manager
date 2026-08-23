@@ -5,6 +5,7 @@ import {
   TWEAKS,
   buildSettings,
   defaultTweakState,
+  importSettings,
   mergeTweakState,
   tweakSettingsJson,
 } from "./tweaks"
@@ -62,4 +63,49 @@ test("tweakSettingsJson is valid JSON matching the enabled keys", () => {
 test("catalog only exposes official or staff-confirmed keys", () => {
   assert.ok(TWEAKS.length > 0)
   assert.ok(TWEAKS.every((tweak) => tweak.status === "Official" || tweak.status === "Staff"))
+})
+
+test("importSettings includes present keys and excludes absent ones", () => {
+  const result = importSettings(
+    JSON.stringify({ "cursor.worktreeMaxCount": 30, "git.showCursorWorktrees": true }),
+  )
+  assert.equal(result.ok, true)
+  if (!result.ok) return
+  assert.equal(result.state.values["cursor.worktreeMaxCount"], 30)
+  assert.equal(result.state.enabled["cursor.worktreeMaxCount"], true)
+  assert.equal(result.state.enabled["git.showCursorWorktrees"], true)
+  assert.equal(result.state.enabled["cursor.general.disableHttp2"], false)
+  assert.deepEqual(result.unmanagedKeys, [])
+})
+
+test("importSettings coerces out-of-range values from the paste", () => {
+  const result = importSettings(JSON.stringify({ "cursor.worktreeMaxCount": 9_999 }))
+  assert.equal(result.ok, true)
+  if (!result.ok) return
+  assert.equal(result.state.values["cursor.worktreeMaxCount"], 100)
+})
+
+test("importSettings reports keys it does not manage", () => {
+  const result = importSettings(
+    JSON.stringify({ "cursor.worktreeMaxCount": 25, "editor.fontSize": 14, "workbench.colorTheme": "x" }),
+  )
+  assert.equal(result.ok, true)
+  if (!result.ok) return
+  assert.deepEqual(result.unmanagedKeys.sort(), ["editor.fontSize", "workbench.colorTheme"])
+})
+
+test("importSettings rejects invalid JSON and non-objects", () => {
+  assert.equal(importSettings("not json").ok, false)
+  assert.equal(importSettings("[1,2,3]").ok, false)
+  assert.equal(importSettings("42").ok, false)
+})
+
+test("export then import round-trips the managed keys", () => {
+  const start = defaultTweakState()
+  start.values["cursor.worktreeMaxCount"] = 40
+  start.enabled["cursor.general.disableHttp2"] = false
+  const result = importSettings(tweakSettingsJson(start))
+  assert.equal(result.ok, true)
+  if (!result.ok) return
+  assert.deepEqual(buildSettings(result.state), buildSettings(start))
 })
