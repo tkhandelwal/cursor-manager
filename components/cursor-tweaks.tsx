@@ -88,6 +88,11 @@ function TweakControl({
         step={tweak.step}
         value={numeric}
         onChange={(event) => {
+          // Number("") is 0, which is under several tweaks' min and would snap
+          // the paired slider to 0 while the user is clearing the field to retype.
+          if (event.target.value === "") {
+            return
+          }
           const parsed = Number(event.target.value)
           if (Number.isFinite(parsed)) {
             onChange(parsed)

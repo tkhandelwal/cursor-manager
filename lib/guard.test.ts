@@ -213,3 +213,22 @@ test("pluginSettingsJson emits valid JSON matching the plugin schema", () => {
   assert.ok(json.endsWith("\n"))
   assert.deepEqual(JSON.parse(json), { maxConcurrentAgents: 4, rotateAfterMessages: 25 })
 })
+
+test("resuming an agent keeps its original start time and cap ordering", () => {
+  let state = seedState(1_000)
+  const target = state.agents[0]
+  const originalStart = target.startedAt
+
+  state = pauseAgent(state, target.id, 2_000)
+  state = resumeAgent(state, DEFAULT_SETTINGS, target.id, 900_000)
+
+  const resumed = state.agents.find((agent) => agent.id === target.id)
+  assert.equal(resumed?.status, "running")
+  assert.equal(resumed?.startedAt, originalStart)
+
+  // Still the oldest, so it is the one the cap evicts — not a newer agent.
+  const oldestRunning = [...state.agents]
+    .filter((agent) => agent.status === "running")
+    .sort((a, b) => a.startedAt - b.startedAt)[0]
+  assert.equal(oldestRunning.id, target.id)
+})

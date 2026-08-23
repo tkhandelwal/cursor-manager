@@ -270,7 +270,9 @@ export function resumeAgent(
   return {
     ...state,
     agents: withRoom.map((item) =>
-      item.id === agentId ? { ...item, status: "running", startedAt: now } : item,
+      // startedAt is deliberately preserved: it is the agent's true start time,
+      // and enforceRunningCap orders eviction by it. pauseAgent preserves it too.
+      item.id === agentId ? { ...item, status: "running" } : item,
     ),
     events: keepEvents(events),
     notice: capped

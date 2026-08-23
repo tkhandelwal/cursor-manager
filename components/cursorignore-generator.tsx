@@ -21,6 +21,7 @@ import {
   IGNORE_ENTRIES,
   IGNORE_GROUPS,
   buildCursorignore,
+  customPatternRejection,
   defaultIgnoreState,
   enabledIgnoreCount,
   sanitizeCustomPatterns,
@@ -32,6 +33,7 @@ export function CursorignoreGenerator() {
   const [ignore, setIgnore] = useState<IgnoreState>(defaultIgnoreState)
   const [custom, setCustom] = useState<string[]>([])
   const [customInput, setCustomInput] = useState("")
+  const [customError, setCustomError] = useState("")
 
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- restore localStorage after mount */
@@ -59,9 +61,14 @@ export function CursorignoreGenerator() {
   const count = useMemo(() => enabledIgnoreCount(ignore, custom), [ignore, custom])
 
   function addCustom() {
-    const next = sanitizeCustomPatterns([...custom, customInput])
-    setCustom(next)
+    const rejection = customPatternRejection(customInput, custom)
+    if (rejection) {
+      setCustomError(rejection)
+      return
+    }
+    setCustom(sanitizeCustomPatterns([...custom, customInput]))
     setCustomInput("")
+    setCustomError("")
   }
 
   return (
@@ -112,7 +119,10 @@ export function CursorignoreGenerator() {
             <Input
               value={customInput}
               placeholder="Add a pattern, e.g. tmp/ or *.bak"
-              onChange={(event) => setCustomInput(event.target.value)}
+              onChange={(event) => {
+                setCustomInput(event.target.value)
+                setCustomError("")
+              }}
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
                   event.preventDefault()
@@ -129,6 +139,7 @@ export function CursorignoreGenerator() {
               Add pattern
             </Button>
           </div>
+          {customError ? <p className="text-xs text-destructive">{customError}</p> : null}
           {custom.length === 0 ? (
             <p className="text-xs text-muted-foreground">No custom patterns.</p>
           ) : (

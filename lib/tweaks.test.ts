@@ -166,3 +166,16 @@ test("mergePresets validates persisted presets and drops junk", () => {
   assert.equal(merged[0].name, "Good")
   assert.equal(merged[0].state.values["cursor.worktreeMaxCount"], 30)
 })
+
+test("snapping a fractional step does not leak float error into the export", () => {
+  const state = defaultTweakState()
+  for (const value of [1.2, 1.4, 1.7, 1.9]) {
+    state.values["cursor.composer.textSizeScale"] = value
+    const settings = buildSettings(state)
+    assert.equal(settings["cursor.composer.textSizeScale"], value)
+    assert.ok(
+      !JSON.stringify(settings).includes("0000000"),
+      `${value} leaked float error: ${JSON.stringify(settings["cursor.composer.textSizeScale"])}`,
+    )
+  }
+})

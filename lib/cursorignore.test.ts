@@ -4,6 +4,7 @@ import { test } from "node:test"
 import {
   IGNORE_ENTRIES,
   buildCursorignore,
+  customPatternRejection,
   defaultIgnoreState,
   enabledIgnoreCount,
   mergeIgnoreState,
@@ -75,4 +76,22 @@ test("parseCursorignore toggles known patterns and keeps unknowns as custom", ()
   assert.equal(enabled["dist/"], true)
   assert.equal(enabled[".env"], false)
   assert.deepEqual(custom, ["src/generated/", "*.tmp"])
+})
+
+test("customPatternRejection explains each pattern sanitize would drop", () => {
+  assert.equal(customPatternRejection("tmp/", []), null)
+  assert.match(customPatternRejection("", []) ?? "", /Enter a pattern/)
+  assert.match(customPatternRejection("   ", []) ?? "", /Enter a pattern/)
+  assert.match(customPatternRejection("# a note", []) ?? "", /Comments/)
+  assert.match(customPatternRejection(IGNORE_ENTRIES[0].pattern, []) ?? "", /toggle above/)
+  assert.match(customPatternRejection("tmp/", ["tmp/"]) ?? "", /already in your custom list/)
+})
+
+test("customPatternRejection agrees with what sanitizeCustomPatterns keeps", () => {
+  const existing = ["tmp/"]
+  for (const candidate of ["tmp/", "*.bak", "", "# note", IGNORE_ENTRIES[0].pattern]) {
+    const accepted = customPatternRejection(candidate, existing) === null
+    const kept = sanitizeCustomPatterns([...existing, candidate]).length > existing.length
+    assert.equal(accepted, kept, `disagreement on "${candidate}"`)
+  }
 })

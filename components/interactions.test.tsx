@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { afterEach, test } from "node:test"
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react"
 
+import { IGNORE_ENTRIES } from "@/lib/cursorignore"
 import { CursorignoreGenerator } from "@/components/cursorignore-generator"
 import { ManualChecklist } from "@/components/manual-checklist"
 import { CursorTweaks } from "@/components/cursor-tweaks"
@@ -52,4 +53,30 @@ test("saving a tweak preset renders a loadable chip", () => {
   const chip = screen.getByRole("button", { name: "Focus mode" })
   assert.ok(chip)
   assert.ok(within(chip.parentElement as HTMLElement).getByRole("button", { name: /Delete preset/ }))
+})
+
+test("a rejected custom pattern explains itself instead of clearing silently", () => {
+  render(<CursorignoreGenerator />)
+  const field = screen.getByPlaceholderText(/Add a pattern/) as HTMLInputElement
+  const covered = IGNORE_ENTRIES[0].pattern
+
+  fireEvent.change(field, { target: { value: covered } })
+  fireEvent.click(screen.getByRole("button", { name: "Add pattern" }))
+
+  assert.ok(screen.getByText(/already has a toggle above/))
+  assert.equal(field.value, covered)
+  assert.ok(screen.getByText("No custom patterns."))
+})
+
+test("clearing a numeric tweak field does not snap the value to zero", () => {
+  render(<CursorTweaks />)
+  const field = screen.getAllByRole("spinbutton")[0] as HTMLInputElement
+  const before = field.value
+  assert.notEqual(before, "0")
+
+  fireEvent.change(field, { target: { value: "" } })
+  assert.equal(field.value, before)
+
+  fireEvent.change(field, { target: { value: "12" } })
+  assert.equal(field.value, "12")
 })

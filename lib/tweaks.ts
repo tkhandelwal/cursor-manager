@@ -103,10 +103,19 @@ export function defaultTweakState(): TweakState {
   return { values, enabled }
 }
 
+/** Decimal places implied by a step, so snapping can round back to them. */
+function stepDecimals(step: number): number {
+  const dot = String(step).indexOf(".")
+  return dot === -1 ? 0 : String(step).length - dot - 1
+}
+
 function clampNumber(tweak: Extract<TweakDef, { type: "number" }>, value: unknown): number {
   const parsed = typeof value === "number" && Number.isFinite(value) ? value : tweak.recommended
   const clamped = Math.min(tweak.max, Math.max(tweak.min, parsed))
-  return Math.round(clamped / tweak.step) * tweak.step
+  const snapped = Math.round(clamped / tweak.step) * tweak.step
+  // Dividing and re-multiplying by a fractional step reintroduces binary float
+  // error (1.4 -> 1.4000000000000001), which would land in the exported JSON.
+  return Number(snapped.toFixed(stepDecimals(tweak.step)))
 }
 
 function coerce(tweak: TweakDef, value: unknown): TweakValue {
