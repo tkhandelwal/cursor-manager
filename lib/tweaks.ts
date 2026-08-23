@@ -135,6 +135,69 @@ export function tweakSettingsJson(state: TweakState): string {
   return `${JSON.stringify(buildSettings(state), null, 2)}\n`
 }
 
+export type SettingsChange = {
+  key: string
+  kind: "added" | "removed" | "changed"
+  from?: TweakValue
+  to?: TweakValue
+}
+
+/** Compare the effective (enabled) settings of two states, newest applied over current. */
+export function diffSettings(current: TweakState, next: TweakState): SettingsChange[] {
+  const before = buildSettings(current)
+  const after = buildSettings(next)
+  const changes: SettingsChange[] = []
+  for (const tweak of TWEAKS) {
+    const inBefore = tweak.key in before
+    const inAfter = tweak.key in after
+    if (inBefore && inAfter) {
+      if (before[tweak.key] !== after[tweak.key]) {
+        changes.push({ key: tweak.key, kind: "changed", from: before[tweak.key], to: after[tweak.key] })
+      }
+    } else if (inAfter) {
+      changes.push({ key: tweak.key, kind: "added", to: after[tweak.key] })
+    } else if (inBefore) {
+      changes.push({ key: tweak.key, kind: "removed", from: before[tweak.key] })
+    }
+  }
+  return changes
+}
+
+export type TweakPreset = {
+  name: string
+  state: TweakState
+}
+
+/** Insert or replace a preset by (trimmed) name; ignores blank names. */
+export function savePreset(presets: TweakPreset[], name: string, state: TweakState): TweakPreset[] {
+  const trimmed = name.trim()
+  if (!trimmed) {
+    return presets
+  }
+  const rest = presets.filter((preset) => preset.name !== trimmed)
+  return [...rest, { name: trimmed, state }].sort((a, b) => a.name.localeCompare(b.name))
+}
+
+export function deletePreset(presets: TweakPreset[], name: string): TweakPreset[] {
+  return presets.filter((preset) => preset.name !== name)
+}
+
+export function mergePresets(value: unknown): TweakPreset[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+  const out: TweakPreset[] = []
+  for (const item of value) {
+    if (item && typeof item === "object" && typeof (item as TweakPreset).name === "string") {
+      const name = (item as TweakPreset).name.trim()
+      if (name && !out.some((preset) => preset.name === name)) {
+        out.push({ name, state: mergeTweakState((item as TweakPreset).state) })
+      }
+    }
+  }
+  return out.sort((a, b) => a.name.localeCompare(b.name))
+}
+
 export type ImportResult =
   | { ok: true; state: TweakState; unmanagedKeys: string[] }
   | { ok: false; error: string }
