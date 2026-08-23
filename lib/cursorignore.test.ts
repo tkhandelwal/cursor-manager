@@ -7,6 +7,8 @@ import {
   defaultIgnoreState,
   enabledIgnoreCount,
   mergeIgnoreState,
+  parseCursorignore,
+  sanitizeCustomPatterns,
 } from "./cursorignore"
 
 test("defaults enable the recommended patterns only", () => {
@@ -51,4 +53,26 @@ test("mergeIgnoreState keeps known booleans and ignores junk", () => {
   assert.equal(merged["node_modules/"], false)
   assert.equal("not.a.pattern" in merged, false)
   assert.equal(merged["dist/"], true)
+})
+
+test("sanitizeCustomPatterns trims, dedupes, and drops catalog/comment/blank entries", () => {
+  const result = sanitizeCustomPatterns([" tmp/ ", "tmp/", "node_modules/", "# comment", "", 42, "*.bak"])
+  assert.deepEqual(result, ["tmp/", "*.bak"])
+})
+
+test("buildCursorignore appends a Custom group and counts custom patterns", () => {
+  const state = defaultIgnoreState()
+  const body = buildCursorignore(state, ["tmp/", "*.bak"])
+  assert.match(body, /# Custom\ntmp\/\n\*\.bak/)
+  assert.equal(enabledIgnoreCount(state, ["tmp/"]), enabledIgnoreCount(state) + 1)
+})
+
+test("parseCursorignore toggles known patterns and keeps unknowns as custom", () => {
+  const { enabled, custom } = parseCursorignore(
+    "# Deps\nnode_modules/\ndist/\nsrc/generated/\n\n*.tmp",
+  )
+  assert.equal(enabled["node_modules/"], true)
+  assert.equal(enabled["dist/"], true)
+  assert.equal(enabled[".env"], false)
+  assert.deepEqual(custom, ["src/generated/", "*.tmp"])
 })

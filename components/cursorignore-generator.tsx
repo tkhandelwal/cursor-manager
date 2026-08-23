@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { FileCog, RotateCcw } from "lucide-react"
+import { FileCog, Plus, RotateCcw, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -11,26 +11,32 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { ExportDialog } from "@/components/export-dialog"
-import { loadIgnore, saveIgnore } from "@/lib/storage"
+import { CursorignoreImportDialog } from "@/components/cursorignore-import-dialog"
+import { loadIgnore, loadIgnoreCustom, saveIgnore, saveIgnoreCustom } from "@/lib/storage"
 import {
   IGNORE_ENTRIES,
   IGNORE_GROUPS,
   buildCursorignore,
   defaultIgnoreState,
   enabledIgnoreCount,
+  sanitizeCustomPatterns,
   type IgnoreState,
 } from "@/lib/cursorignore"
 
 export function CursorignoreGenerator() {
   const [hydrated, setHydrated] = useState(false)
   const [ignore, setIgnore] = useState<IgnoreState>(defaultIgnoreState)
+  const [custom, setCustom] = useState<string[]>([])
+  const [customInput, setCustomInput] = useState("")
 
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- restore localStorage after mount */
     setIgnore(loadIgnore())
+    setCustom(loadIgnoreCustom())
     setHydrated(true)
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [])
@@ -42,8 +48,21 @@ export function CursorignoreGenerator() {
     saveIgnore(ignore)
   }, [hydrated, ignore])
 
-  const body = useMemo(() => buildCursorignore(ignore), [ignore])
-  const count = useMemo(() => enabledIgnoreCount(ignore), [ignore])
+  useEffect(() => {
+    if (!hydrated) {
+      return
+    }
+    saveIgnoreCustom(custom)
+  }, [hydrated, custom])
+
+  const body = useMemo(() => buildCursorignore(ignore, custom), [ignore, custom])
+  const count = useMemo(() => enabledIgnoreCount(ignore, custom), [ignore, custom])
+
+  function addCustom() {
+    const next = sanitizeCustomPatterns([...custom, customInput])
+    setCustom(next)
+    setCustomInput("")
+  }
 
   return (
     <Card>
@@ -87,12 +106,71 @@ export function CursorignoreGenerator() {
           </div>
         ))}
 
+        <div className="space-y-2 border-t pt-3">
+          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Custom</p>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Input
+              value={customInput}
+              placeholder="Add a pattern, e.g. tmp/ or *.bak"
+              onChange={(event) => setCustomInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault()
+                  addCustom()
+                }
+              }}
+            />
+            <Button
+              variant="secondary"
+              disabled={customInput.trim().length === 0}
+              onClick={addCustom}
+            >
+              <Plus />
+              Add pattern
+            </Button>
+          </div>
+          {custom.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No custom patterns.</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {custom.map((pattern) => (
+                <div
+                  key={pattern}
+                  className="flex items-center gap-1 rounded-lg border py-1 pr-1 pl-2"
+                >
+                  <span className="font-mono text-xs">{pattern}</span>
+                  <Button
+                    size="icon-xs"
+                    variant="ghost"
+                    aria-label={`Remove ${pattern}`}
+                    onClick={() => setCustom((current) => current.filter((item) => item !== pattern))}
+                  >
+                    <Trash2 />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-muted-foreground">
             {count} pattern{count === 1 ? "" : "s"} selected.
           </p>
           <div className="flex flex-wrap gap-2">
-            <Button variant="ghost" onClick={() => setIgnore(defaultIgnoreState())}>
+            <CursorignoreImportDialog
+              onApply={(enabled, imported) => {
+                setIgnore(enabled)
+                setCustom(imported)
+              }}
+            />
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setIgnore(defaultIgnoreState())
+                setCustom([])
+              }}
+            >
               <RotateCcw />
               Reset to recommended
             </Button>
