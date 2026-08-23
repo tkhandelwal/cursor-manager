@@ -78,3 +78,28 @@ test("countDirectories returns null for a missing path", async () => {
   const root = await fixture()
   assert.equal(await countDirectories(join(root, "nope")), null)
 })
+
+test("exceeding the time cap while iterating a flat directory returns null", async () => {
+  const root = await fixture()
+  // Create multiple files to trigger stat() calls in the for loop
+  for (let i = 0; i < 5; i += 1) {
+    await writeFile(join(root, `f${i}.bin`), Buffer.alloc(100))
+  }
+
+  let callCount = 0
+  const now = () => {
+    callCount += 1
+    if (callCount === 1) {
+      // First call: stat() of root at the beginning (line 31)
+      return 0
+    }
+    if (callCount === 2) {
+      // Second call: while loop check (line 49), should still be under deadline
+      return 100
+    }
+    // All subsequent calls: exceed the deadline
+    return 2000
+  }
+
+  assert.equal(await measurePath(root, { maxMs: 1000, now }), null)
+})

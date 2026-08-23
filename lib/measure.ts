@@ -59,6 +59,9 @@ export async function measurePath(
     }
 
     for (const item of items) {
+      if (now() > deadline) {
+        return null
+      }
       entries += 1
       if (entries > maxEntries) {
         return null
