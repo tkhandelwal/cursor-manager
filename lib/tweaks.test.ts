@@ -5,8 +5,12 @@ import {
   TWEAKS,
   buildSettings,
   defaultTweakState,
+  deletePreset,
+  diffSettings,
   importSettings,
+  mergePresets,
   mergeTweakState,
+  savePreset,
   tweakSettingsJson,
 } from "./tweaks"
 
@@ -108,4 +112,57 @@ test("export then import round-trips the managed keys", () => {
   assert.equal(result.ok, true)
   if (!result.ok) return
   assert.deepEqual(buildSettings(result.state), buildSettings(start))
+})
+
+test("diffSettings reports added, removed, and changed keys", () => {
+  const current = defaultTweakState()
+  const next = defaultTweakState()
+  next.values["cursor.worktreeMaxCount"] = 40 // changed
+  next.enabled["cursor.general.disableHttp2"] = false // removed
+  current.enabled["git.showCursorWorktrees"] = false // added (present in next, absent in current)
+
+  const changes = diffSettings(current, next)
+  const byKey = Object.fromEntries(changes.map((change) => [change.key, change]))
+  assert.equal(byKey["cursor.worktreeMaxCount"].kind, "changed")
+  assert.equal(byKey["cursor.worktreeMaxCount"].from, 25)
+  assert.equal(byKey["cursor.worktreeMaxCount"].to, 40)
+  assert.equal(byKey["cursor.general.disableHttp2"].kind, "removed")
+  assert.equal(byKey["git.showCursorWorktrees"].kind, "added")
+})
+
+test("diffSettings returns nothing for identical states", () => {
+  assert.deepEqual(diffSettings(defaultTweakState(), defaultTweakState()), [])
+})
+
+test("savePreset upserts by name and keeps the list sorted", () => {
+  const state = defaultTweakState()
+  let presets = savePreset([], "Beta", state)
+  presets = savePreset(presets, "Alpha", state)
+  assert.deepEqual(presets.map((preset) => preset.name), ["Alpha", "Beta"])
+
+  const changed = defaultTweakState()
+  changed.values["cursor.worktreeMaxCount"] = 10
+  presets = savePreset(presets, "Alpha", changed)
+  assert.equal(presets.length, 2)
+  assert.equal(presets.find((preset) => preset.name === "Alpha")?.state.values["cursor.worktreeMaxCount"], 10)
+})
+
+test("savePreset ignores blank names and deletePreset removes by name", () => {
+  const presets = savePreset([], "   ", defaultTweakState())
+  assert.equal(presets.length, 0)
+
+  const withOne = savePreset([], "Keep", defaultTweakState())
+  assert.deepEqual(deletePreset(withOne, "Keep"), [])
+})
+
+test("mergePresets validates persisted presets and drops junk", () => {
+  const merged = mergePresets([
+    { name: "Good", state: { values: { "cursor.worktreeMaxCount": 30 }, enabled: {} } },
+    { name: "" },
+    "nope",
+    { state: {} },
+  ])
+  assert.equal(merged.length, 1)
+  assert.equal(merged[0].name, "Good")
+  assert.equal(merged[0].state.values["cursor.worktreeMaxCount"], 30)
 })
