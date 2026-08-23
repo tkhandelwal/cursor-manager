@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises"
-import { tmpdir } from "node:os"
+import { execFileSync } from "node:child_process"
+import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises"
+import { tmpdir, userInfo } from "node:os"
 import { join } from "node:path"
 import { after, test } from "node:test"
 
@@ -12,6 +13,27 @@ async function fixture(): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "cursor-manager-measure-"))
   roots.push(dir)
   return dir
+}
+
+// Windows has no chmod-based "unreadable directory" the way POSIX does, but
+// denying "List folder / Read data" via icacls makes readdir() throw EPERM,
+// which is what a locked-by-another-process or ACL-restricted Cursor cache
+// directory looks like in practice. Only meaningful on win32; skipped
+// elsewhere rather than faked, since a faked failure wouldn't exercise the
+// real fs error path.
+const isWindows = process.platform === "win32"
+const windowsTest = isWindows ? test : test.skip
+
+function denyListing(dir: string): void {
+  execFileSync("icacls", [dir, "/deny", `${userInfo().username}:(RD)`])
+}
+
+function restoreListing(dir: string): void {
+  try {
+    execFileSync("icacls", [dir, "/remove:d", userInfo().username])
+  } catch {
+    // best-effort cleanup; rm below will still fail loudly if it matters
+  }
 }
 
 after(async () => {
@@ -63,6 +85,55 @@ test("exceeding the time cap returns null rather than a partial total", async ()
     return ticks * 10_000 // every check jumps 10s, blowing any deadline
   }
   assert.equal(await measurePath(root, { maxMs: 1, now }), null)
+})
+
+windowsTest(
+  "an unreadable ROOT directory measures null, never a healthy-looking 0 B",
+  async () => {
+    const root = await fixture()
+    const locked = join(root, "locked-root")
+    await mkdir(locked)
+    denyListing(locked)
+    try {
+      assert.equal(await measurePath(locked), null)
+    } finally {
+      restoreListing(locked)
+    }
+  },
+)
+
+windowsTest(
+  "an unreadable SUBdirectory is skipped but marks the walk incomplete, so the total is null",
+  async () => {
+    const root = await fixture()
+    await writeFile(join(root, "a.bin"), Buffer.alloc(1000))
+    const locked = join(root, "locked-child")
+    await mkdir(locked)
+    await writeFile(join(locked, "b.bin"), Buffer.alloc(500))
+    denyListing(locked)
+    try {
+      assert.equal(await measurePath(root), null)
+    } finally {
+      restoreListing(locked)
+    }
+  },
+)
+
+test("a symlinked entry is not traversed or counted, and marks the walk incomplete", async () => {
+  const root = await fixture()
+  await writeFile(join(root, "a.bin"), Buffer.alloc(1000))
+  const target = join(root, "real.bin")
+  await writeFile(target, Buffer.alloc(500))
+  try {
+    await symlink(target, join(root, "link.bin"), "file")
+  } catch (err) {
+    // Symlink creation can require elevated privilege on some Windows
+    // configurations; if this environment can't create one, skip rather
+    // than falsely pass or fail on an untested path.
+    console.warn("skipping symlink test: could not create a symlink:", err)
+    return
+  }
+  assert.equal(await measurePath(root), null)
 })
 
 test("countDirectories counts only immediate subdirectories", async () => {

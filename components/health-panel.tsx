@@ -12,7 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { loadHealthSnapshot, saveHealthSnapshot } from "@/lib/storage"
-import { formatBytes, totalBytes, type Finding, type HealthReport } from "@/lib/health"
+import { comparableDelta, formatBytes, type Finding, type HealthReport } from "@/lib/health"
 
 const SEVERITY_CLASS: Record<Finding["severity"], string> = {
   ok: "border-border",
@@ -59,8 +59,7 @@ export function HealthPanel() {
     }
   }, [report])
 
-  const delta =
-    report && previous ? totalBytes(report) - totalBytes(previous) : null
+  const delta = report && previous ? comparableDelta(report, previous) : null
 
   return (
     <Card>
@@ -83,9 +82,10 @@ export function HealthPanel() {
           </Button>
           {delta !== null ? (
             <span className="text-xs text-muted-foreground">
-              {delta === 0
+              {delta.bytes === 0
                 ? "No change since the last measurement."
-                : `${delta < 0 ? "Freed" : "Grew"} ${formatBytes(Math.abs(delta))} since the last measurement.`}
+                : `${delta.bytes < 0 ? "Freed" : "Grew"} ${formatBytes(Math.abs(delta.bytes))} since the last measurement.`}
+              {delta.excludedSome ? " (some metrics could not be compared)" : ""}
             </span>
           ) : null}
         </div>
@@ -93,9 +93,20 @@ export function HealthPanel() {
         {error ? <p className="text-xs text-destructive">{error}</p> : null}
 
         {report && !report.installFound ? (
-          <p className="text-xs text-muted-foreground">
-            No Cursor install found at the expected location. Nothing could be measured.
-          </p>
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">
+              Nothing could be measured at the locations below. This may mean Cursor isn&apos;t
+              installed here, or that these paths are unreadable, locked, or the measurement
+              timed out — not necessarily that Cursor is missing.
+            </p>
+            <div className="space-y-1">
+              {report.findings.map((finding) => (
+                <p key={finding.id} className="font-mono text-xs break-all text-muted-foreground">
+                  {finding.label}: {finding.path}
+                </p>
+              ))}
+            </div>
+          </div>
         ) : null}
 
         {report?.installFound ? (

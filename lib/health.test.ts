@@ -3,6 +3,7 @@ import { test } from "node:test"
 
 import {
   THRESHOLDS,
+  comparableDelta,
   formatBytes,
   gradeMeasurements,
   totalBytes,
@@ -10,6 +11,7 @@ import {
 } from "./health"
 
 const GB = 1024 ** 3
+const MB = 1024 ** 2
 
 function measurement(id: string, bytes: number | null): Measurement {
   return { id, label: id, path: `/fake/${id}`, bytes }
@@ -110,4 +112,53 @@ test("formatBytes scales and keeps one decimal above bytes", () => {
 test("formatBytes renders a dash for values it cannot show", () => {
   assert.equal(formatBytes(-1), "—")
   assert.equal(formatBytes(Number.NaN), "—")
+})
+
+test("comparableDelta excludes a metric that is null in either report, and sums the rest", () => {
+  // workspace-storage caps out (null) on the second run: a real, nondeterministic
+  // scenario from the traversal time cap. It must not be treated as "freed 114 MB".
+  const previous = gradeMeasurements(
+    [
+      measurement("chat-db", 200),
+      measurement("workspace-storage", 114 * MB),
+      measurement("cache", 50),
+    ],
+    1_000,
+  )
+  const current = gradeMeasurements(
+    [
+      measurement("chat-db", 150),
+      measurement("workspace-storage", null),
+      measurement("cache", 50),
+    ],
+    2_000,
+  )
+
+  const delta = comparableDelta(current, previous)
+  assert.ok(delta)
+  // Only chat-db (200->150, -50) and cache (50->50, 0) are comparable.
+  // workspace-storage must be excluded entirely, not treated as -114 MB "freed".
+  assert.equal(delta.bytes, -50)
+  assert.equal(delta.excludedSome, true)
+})
+
+test("comparableDelta returns null when nothing is comparable between the two reports", () => {
+  const previous = gradeMeasurements(
+    [measurement("chat-db", null), measurement("cache", null)],
+    1_000,
+  )
+  const current = gradeMeasurements(
+    [measurement("chat-db", null), measurement("cache", null)],
+    2_000,
+  )
+  assert.equal(comparableDelta(current, previous), null)
+})
+
+test("comparableDelta reports no exclusions when every id compares cleanly", () => {
+  const previous = gradeMeasurements([measurement("chat-db", 100)], 1_000)
+  const current = gradeMeasurements([measurement("chat-db", 80)], 2_000)
+  const delta = comparableDelta(current, previous)
+  assert.ok(delta)
+  assert.equal(delta.bytes, -20)
+  assert.equal(delta.excludedSome, false)
 })

@@ -99,6 +99,68 @@ export function totalBytes(report: HealthReport): number {
   return report.findings.reduce((sum, finding) => sum + (finding.bytes ?? 0), 0)
 }
 
+export type Delta = {
+  /** Sum of (current - previous) across only the ids comparable on both sides. */
+  bytes: number
+  /**
+   * True when at least one metric id could not be compared (null on either
+   * side, or present on only one side) and was therefore excluded from
+   * `bytes`. Callers must surface this so the delta is never silently
+   * presented as covering more than it does.
+   */
+  excludedSome: boolean
+}
+
+/**
+ * Byte delta between two health reports, computed only over metric ids that
+ * have a non-null `bytes` in BOTH reports.
+ *
+ * The 5,000 ms traversal cap is wall-clock and therefore nondeterministic:
+ * the same real install can measure a metric on one run and cap it out
+ * (null) on the next. Naively treating null as 0 (the way totalBytes does,
+ * by design, for its own callers) would make a capped-out metric look like
+ * it dropped to zero — announcing bytes "freed" that were never freed. This
+ * function exists specifically to avoid that: an incomparable id is
+ * excluded from the sum entirely rather than counted as 0 on either side.
+ *
+ * Returns null when there is nothing comparable at all, so callers can
+ * choose to show no delta rather than a delta over zero metrics.
+ */
+export function comparableDelta(current: HealthReport, previous: HealthReport): Delta | null {
+  const previousById = new Map(previous.findings.map((finding) => [finding.id, finding]))
+  const seenPreviousIds = new Set<string>()
+
+  let bytes = 0
+  let comparedCount = 0
+  let excludedSome = false
+
+  for (const finding of current.findings) {
+    const prior = previousById.get(finding.id)
+    if (prior) {
+      seenPreviousIds.add(finding.id)
+    }
+    if (!prior || finding.bytes === null || prior.bytes === null) {
+      excludedSome = true
+      continue
+    }
+    bytes += finding.bytes - prior.bytes
+    comparedCount += 1
+  }
+
+  // An id present only in the previous report (e.g. a metric that vanished
+  // from this build) is also incomparable and must be flagged, even though
+  // it contributes nothing to the sum.
+  if (previous.findings.some((finding) => !seenPreviousIds.has(finding.id))) {
+    excludedSome = true
+  }
+
+  if (comparedCount === 0) {
+    return null
+  }
+
+  return { bytes, excludedSome }
+}
+
 export function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes < 0) {
     return "—"
