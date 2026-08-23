@@ -1,8 +1,10 @@
 import { DEFAULT_SETTINGS, type GuardState, type Settings } from "./types"
 import { isGuardState, mergeSettings, normalizeState, seedState } from "./guard"
+import { defaultTweakState, mergeTweakState, type TweakState } from "./tweaks"
 
 const SETTINGS_KEY = "session-guard:settings"
 const STATE_KEY = "session-guard:state"
+const TWEAKS_KEY = "session-guard:tweaks"
 
 export function loadSettings(): Settings {
   if (typeof window === "undefined") {
@@ -48,4 +50,20 @@ export function saveState(state: GuardState): void {
 
 export function clearState(): void {
   window.localStorage.removeItem(STATE_KEY)
+}
+
+export function loadTweaks(): TweakState {
+  if (typeof window === "undefined") {
+    return defaultTweakState()
+  }
+  try {
+    const raw = window.localStorage.getItem(TWEAKS_KEY)
+    return raw ? mergeTweakState(JSON.parse(raw) as unknown) : defaultTweakState()
+  } catch {
+    return defaultTweakState()
+  }
+}
+
+export function saveTweaks(tweaks: TweakState): void {
+  window.localStorage.setItem(TWEAKS_KEY, JSON.stringify(tweaks))
 }
