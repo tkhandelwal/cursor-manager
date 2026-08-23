@@ -43,7 +43,7 @@ test("every slash-command has name and description frontmatter", () => {
 
   for (const file of files) {
     const body = readFileSync(join(commandsDir, file), "utf8")
-    const frontmatter = body.match(/^---\n([\s\S]*?)\n---/)
+    const frontmatter = body.match(/^---\r?\n([\s\S]*?)\r?\n---/)
     assert.ok(frontmatter, `${file} is missing a frontmatter block`)
     assert.match(frontmatter[1], /\bname:\s*\S+/, `${file} is missing a name`)
     assert.match(frontmatter[1], /\bdescription:\s*\S+/, `${file} is missing a description`)

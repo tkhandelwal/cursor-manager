@@ -1,0 +1,6 @@
+# All blobs in this repo are stored LF. Force LF in the working tree too, so a
+# Windows checkout with core.autocrlf=true does not rewrite files that are
+# parsed as LF — notably plugin/commands/*.md frontmatter and plugin/scripts/*.
+* text=auto eol=lf
+
+*.ico binary
