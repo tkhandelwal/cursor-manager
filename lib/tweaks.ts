@@ -135,6 +135,41 @@ export function tweakSettingsJson(state: TweakState): string {
   return `${JSON.stringify(buildSettings(state), null, 2)}\n`
 }
 
+export type ImportResult =
+  | { ok: true; state: TweakState; unmanagedKeys: string[] }
+  | { ok: false; error: string }
+
+/**
+ * Parse a pasted User Settings JSON into a TweakState: managed keys that are
+ * present are included with coerced values, keys that are absent are excluded,
+ * and any keys we do not manage are reported so nothing is silently dropped.
+ */
+export function importSettings(text: string): ImportResult {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(text)
+  } catch {
+    return { ok: false, error: "That is not valid JSON." }
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return { ok: false, error: "Expected a JSON object of settings." }
+  }
+
+  const incoming = parsed as Record<string, unknown>
+  const managed = new Set(TWEAKS.map((tweak) => tweak.key))
+  const values: Record<string, TweakValue> = {}
+  const enabled: Record<string, boolean> = {}
+
+  for (const tweak of TWEAKS) {
+    const present = tweak.key in incoming
+    values[tweak.key] = present ? coerce(tweak, incoming[tweak.key]) : tweak.recommended
+    enabled[tweak.key] = present
+  }
+
+  const unmanagedKeys = Object.keys(incoming).filter((key) => !managed.has(key))
+  return { ok: true, state: { values, enabled }, unmanagedKeys }
+}
+
 export function mergeTweakState(value: unknown): TweakState {
   const base = defaultTweakState()
   if (!value || typeof value !== "object") {

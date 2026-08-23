@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { JsonExportDialog } from "@/components/json-export-dialog"
+import { SettingsImportDialog } from "@/components/settings-import-dialog"
 import { loadTweaks, saveTweaks } from "@/lib/storage"
 import {
   TWEAKS,
@@ -181,6 +182,7 @@ export function CursorTweaks() {
             {includedCount} of {TWEAKS.length} keys will be written.
           </p>
           <div className="flex flex-wrap gap-2">
+            <SettingsImportDialog onApply={(next) => setTweaks(next)} />
             <Button variant="ghost" onClick={() => setTweaks(defaultTweakState())}>
               <RotateCcw />
               Reset to recommended
