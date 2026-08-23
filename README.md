@@ -70,6 +70,26 @@ Full table and file-based config: [`plugin/recommended/SETTINGS.md`](plugin/reco
 
 Plugins cannot write `settings.json` for you without the agent. They cannot open or delete IDE chats.
 
+## Session Guard web app
+
+A local Next.js dashboard for the policies this plugin enforces. It never touches Cursor directly — it's a control panel that simulates the cap/rotation rules and generates the config you paste into Cursor.
+
+```bash
+npm install
+npm run dev   # http://localhost:43127
+```
+
+| Panel | What it does |
+| --- | --- |
+| Chats | Simulate message/time/context load and watch rotation fire |
+| Agents | Enforce the concurrent-agent cap; **pause** an agent to free a slot without losing it |
+| Policy | Tune thresholds, then **Export for plugin** (`~/.cursor/cursor-manager/settings.json`) |
+| Cursor tweaks | Toggle the hidden `settings.json` keys, **Import**/**Export** them, and save named **presets** |
+| Cursorignore | Build and export a `.cursorignore` from grouped, toggleable patterns |
+| Checklist | Track the UI-only controls and memory-cleanup steps that have no JSON key |
+
+Scripts: `npm run lint`, `npm test` (guard + tweaks + plugin + component tests), `npm run build`.
+
 ## Repo
 
 | | |
