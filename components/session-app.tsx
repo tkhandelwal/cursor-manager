@@ -4,9 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import {
   AlertTriangle,
   Bot,
-  Check,
   Clock3,
-  Copy,
   Download,
   MessageSquarePlus,
   Pause,
@@ -26,20 +24,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
+import { CursorTweaks } from "@/components/cursor-tweaks"
+import { JsonExportDialog } from "@/components/json-export-dialog"
 import {
   addWork,
   applyRotation,
@@ -202,65 +193,25 @@ function ChatCard({
   )
 }
 
-async function copyText(text: string): Promise<boolean> {
-  try {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(text)
-      return true
-    }
-  } catch {
-    /* fall back to the legacy path below when the async API is blocked */
-  }
-  try {
-    const area = document.createElement("textarea")
-    area.value = text
-    area.style.position = "fixed"
-    area.style.opacity = "0"
-    document.body.appendChild(area)
-    area.focus()
-    area.select()
-    const ok = document.execCommand("copy")
-    document.body.removeChild(area)
-    return ok
-  } catch {
-    return false
-  }
-}
-
 function PluginExportDialog({ settings }: { settings: Settings }) {
-  const [copied, setCopied] = useState(false)
-  const json = useMemo(() => pluginSettingsJson(settings), [settings])
-
-  async function copy() {
-    if (await copyText(json)) {
-      setCopied(true)
-      window.setTimeout(() => setCopied(false), 1500)
-    }
-  }
-
   return (
-    <Dialog onOpenChange={() => setCopied(false)}>
-      <DialogTrigger render={<Button variant="outline" className="w-full" />}>
-        <Download />
-        Export for plugin
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Plugin settings</DialogTitle>
-          <DialogDescription>
-            Save this as <code className="font-mono">~/.cursor/cursor-manager/settings.json</code>. The
-            Cursor Manager hooks read these two values to enforce the cap and rotation reminders.
-          </DialogDescription>
-        </DialogHeader>
-        <pre className="overflow-x-auto rounded-lg bg-muted/60 p-3 font-mono text-xs">{json}</pre>
-        <DialogFooter showCloseButton>
-          <Button onClick={copy}>
-            {copied ? <Check /> : <Copy />}
-            {copied ? "Copied" : "Copy JSON"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <JsonExportDialog
+      json={pluginSettingsJson(settings)}
+      title="Plugin settings"
+      description={
+        <>
+          Save this as{" "}
+          <span className="font-mono">~/.cursor/cursor-manager/settings.json</span>. The Cursor Manager
+          hooks read these two values to enforce the cap and rotation reminders.
+        </>
+      }
+      trigger={
+        <>
+          <Download />
+          Export for plugin
+        </>
+      }
+    />
   )
 }
 
@@ -687,6 +638,8 @@ export function SessionApp() {
           </Card>
         </div>
       </div>
+
+      <CursorTweaks />
 
       <Card>
         <CardHeader>
