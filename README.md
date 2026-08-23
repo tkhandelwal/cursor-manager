@@ -27,6 +27,7 @@ Then run **`/steroids`** in Agent chat to merge hidden `settings.json` keys and 
 | `/hidden-settings` | Merge verified keys into User Settings JSON |
 | `/memory-cleanup` | Walk **Delete Old Chats**, **GC Agent KV Blobs**, Process Explorer |
 | `/rotate-chat` | 5-bullet handoff, then Cmd/Ctrl+N |
+| `/session-status` | Report tracked-chat count vs the cap via `scripts/status.mjs` |
 
 ## Settings in Cursor but not in the UI
 
@@ -68,6 +69,26 @@ Full table and file-based config: [`plugin/recommended/SETTINGS.md`](plugin/reco
 | Recommended JSON | Only when you run `/hidden-settings` or `/steroids` |
 
 Plugins cannot write `settings.json` for you without the agent. They cannot open or delete IDE chats.
+
+## Session Guard web app
+
+A local Next.js dashboard for the policies this plugin enforces. It never touches Cursor directly — it's a control panel that simulates the cap/rotation rules and generates the config you paste into Cursor.
+
+```bash
+npm install
+npm run dev   # http://localhost:43127
+```
+
+| Panel | What it does |
+| --- | --- |
+| Chats | Simulate message/time/context load and watch rotation fire |
+| Agents | Enforce the concurrent-agent cap; **pause** an agent to free a slot without losing it |
+| Policy | Tune thresholds, then **Export for plugin** (`~/.cursor/cursor-manager/settings.json`) |
+| Cursor tweaks | Toggle the hidden `settings.json` keys, **Import**/**Export** them, and save named **presets** |
+| Cursorignore | Build and export a `.cursorignore` from grouped, toggleable patterns |
+| Checklist | Track the UI-only controls and memory-cleanup steps that have no JSON key |
+
+Scripts: `npm run lint`, `npm test` (guard + tweaks + plugin + component tests), `npm run build`.
 
 ## Repo
 

@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   Bot,
   Clock3,
+  Download,
   MessageSquarePlus,
   Pause,
   Play,
@@ -28,11 +29,19 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
+import { CursorTweaks } from "@/components/cursor-tweaks"
+import { CursorignoreGenerator } from "@/components/cursorignore-generator"
+import { LaunchFlags } from "@/components/launch-flags"
+import { ManualChecklist } from "@/components/manual-checklist"
+import { ExportDialog } from "@/components/export-dialog"
 import {
   addWork,
   applyRotation,
   deleteChat,
   nextChatTitle,
+  pauseAgent,
+  pluginSettingsJson,
+  resumeAgent,
   rotationReasons,
   runningAgentCount,
   seedState,
@@ -184,6 +193,29 @@ function ChatCard({
         </Button>
       </div>
     </div>
+  )
+}
+
+function PluginExportDialog({ settings }: { settings: Settings }) {
+  return (
+    <ExportDialog
+      content={pluginSettingsJson(settings)}
+      copyLabel="Copy JSON"
+      title="Plugin settings"
+      description={
+        <>
+          Save this as{" "}
+          <span className="font-mono">~/.cursor/cursor-manager/settings.json</span>. The Cursor Manager
+          hooks read these two values to enforce the cap and rotation reminders.
+        </>
+      }
+      trigger={
+        <>
+          <Download />
+          Export for plugin
+        </>
+      }
+    />
   )
 }
 
@@ -536,6 +568,7 @@ export function SessionApp() {
               >
                 Apply policy now
               </Button>
+              <PluginExportDialog settings={settings} />
             </CardContent>
           </Card>
 
@@ -543,7 +576,8 @@ export function SessionApp() {
             <CardHeader>
               <CardTitle>Agents</CardTitle>
               <CardDescription>
-                Launching a sixth agent stops the oldest one. Cap is {settings.maxConcurrentAgents}.
+                Launching a sixth agent stops the oldest one. Pause an agent to free a slot without
+                losing it. Cap is {settings.maxConcurrentAgents}.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -561,16 +595,37 @@ export function SessionApp() {
                         {agent.status} · started {formatTime(agent.startedAt)}
                       </p>
                     </div>
-                    {agent.status === "running" ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setState(stopAgent(state, agent.id))}
-                      >
-                        Stop
-                      </Button>
-                    ) : (
+                    {agent.status === "stopped" ? (
                       <Badge variant="secondary">{agent.status}</Badge>
+                    ) : (
+                      <div className="flex shrink-0 items-center gap-1">
+                        {agent.status === "running" ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setState(pauseAgent(state, agent.id))}
+                          >
+                            <Pause />
+                            Pause
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setState(resumeAgent(state, settings, agent.id))}
+                          >
+                            <Play />
+                            Resume
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setState(stopAgent(state, agent.id))}
+                        >
+                          Stop
+                        </Button>
+                      </div>
                     )}
                   </div>
                 ))
@@ -587,6 +642,14 @@ export function SessionApp() {
           </Card>
         </div>
       </div>
+
+      <CursorTweaks />
+
+      <CursorignoreGenerator />
+
+      <LaunchFlags />
+
+      <ManualChecklist />
 
       <Card>
         <CardHeader>

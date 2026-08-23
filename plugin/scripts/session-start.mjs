@@ -2,6 +2,7 @@
 
 import {
   activeCount,
+  capMessage,
   loadSettings,
   loadState,
   readStdinJson,
@@ -23,10 +24,4 @@ if (id) {
   await saveState(state)
 }
 
-const count = activeCount(state)
-const atCap = count >= settings.maxConcurrentAgents
-const extra = atCap
-  ? `Cursor Manager: ${count} chats are already tracked (cap ${settings.maxConcurrentAgents}). Tell the user to finish or close an older agent before starting more parallel work.`
-  : `Cursor Manager: ${count}/${settings.maxConcurrentAgents} tracked chats. Start a new chat (Cmd/Ctrl+N) after about ${settings.rotateAfterMessages} messages, 45 minutes, or when the context ring stays full.`
-
-writeHook({ additional_context: extra })
+writeHook({ additional_context: capMessage(activeCount(state), settings) })
