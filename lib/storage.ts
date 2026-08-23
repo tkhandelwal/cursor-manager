@@ -15,6 +15,7 @@ import {
 } from "./cursorignore"
 import { defaultChecklistState, mergeChecklistState, type ChecklistState } from "./manual-steps"
 import { defaultFlagState, mergeFlagState, type FlagState } from "./launch-flags"
+import { type HealthReport } from "./health"
 
 const SETTINGS_KEY = "session-guard:settings"
 const STATE_KEY = "session-guard:state"
@@ -24,6 +25,7 @@ const IGNORE_KEY = "session-guard:cursorignore"
 const IGNORE_CUSTOM_KEY = "session-guard:cursorignore-custom"
 const CHECKLIST_KEY = "session-guard:checklist"
 const LAUNCH_FLAGS_KEY = "session-guard:launch-flags"
+const HEALTH_SNAPSHOT_KEY = "session-guard:health-snapshot"
 
 export function loadSettings(): Settings {
   if (typeof window === "undefined") {
@@ -165,4 +167,24 @@ export function loadLaunchFlags(): FlagState {
 
 export function saveLaunchFlags(flags: FlagState): void {
   window.localStorage.setItem(LAUNCH_FLAGS_KEY, JSON.stringify(flags))
+}
+
+export function loadHealthSnapshot(): HealthReport | null {
+  if (typeof window === "undefined") {
+    return null
+  }
+  try {
+    const raw = window.localStorage.getItem(HEALTH_SNAPSHOT_KEY)
+    if (!raw) {
+      return null
+    }
+    const parsed = JSON.parse(raw) as HealthReport
+    return Array.isArray(parsed?.findings) ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+export function saveHealthSnapshot(report: HealthReport): void {
+  window.localStorage.setItem(HEALTH_SNAPSHOT_KEY, JSON.stringify(report))
 }

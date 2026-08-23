@@ -6,6 +6,7 @@ import { CursorTweaks } from "@/components/cursor-tweaks"
 import { CursorignoreGenerator } from "@/components/cursorignore-generator"
 import { LaunchFlags } from "@/components/launch-flags"
 import { ExportDialog } from "@/components/export-dialog"
+import { HealthPanel } from "@/components/health-panel"
 import { SessionApp } from "@/components/session-app"
 
 test("CursorTweaks renders every key, the include count, and the actions", () => {
@@ -46,6 +47,13 @@ test("ExportDialog renders its trigger label", () => {
   assert.match(html, /Open export/)
 })
 
+test("HealthPanel renders its heading and the heuristic disclaimer", () => {
+  const html = renderToStaticMarkup(<HealthPanel />)
+  assert.match(html, /Install health/)
+  assert.match(html, /rules of thumb/i)
+  assert.match(html, /Measure/)
+})
+
 test("SessionApp renders the seeded dashboard end to end", () => {
   const html = renderToStaticMarkup(<SessionApp />)
   assert.match(html, /Session Guard/)
@@ -54,5 +62,6 @@ test("SessionApp renders the seeded dashboard end to end", () => {
   assert.match(html, /Cursor tweaks/)
   assert.match(html, /Cursorignore/)
   assert.match(html, /Launch flags/)
+  assert.match(html, /Install health/)
   assert.match(html, /Activity/)
 })
