@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server"
 
 import { CursorTweaks } from "@/components/cursor-tweaks"
 import { CursorignoreGenerator } from "@/components/cursorignore-generator"
+import { LaunchFlags } from "@/components/launch-flags"
 import { ExportDialog } from "@/components/export-dialog"
 import { SessionApp } from "@/components/session-app"
 
@@ -28,6 +29,16 @@ test("CursorignoreGenerator renders groups, patterns, and export action", () => 
   assert.match(html, /Export \.cursorignore/)
 })
 
+test("LaunchFlags renders every group, flag, and the command preview", () => {
+  const html = renderToStaticMarkup(<LaunchFlags />)
+  assert.match(html, /Launch flags/)
+  assert.match(html, /Performance/)
+  assert.match(html, /Troubleshooting/)
+  assert.match(html, /--disable-gpu/)
+  assert.match(html, /--disable-extensions/)
+  assert.match(html, /Copy command/)
+})
+
 test("ExportDialog renders its trigger label", () => {
   const html = renderToStaticMarkup(
     <ExportDialog content="{}" title="Demo" description="desc" trigger={<span>Open export</span>} />,
@@ -42,5 +53,6 @@ test("SessionApp renders the seeded dashboard end to end", () => {
   assert.match(html, /Agents/)
   assert.match(html, /Cursor tweaks/)
   assert.match(html, /Cursorignore/)
+  assert.match(html, /Launch flags/)
   assert.match(html, /Activity/)
 })

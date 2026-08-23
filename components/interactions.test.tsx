@@ -6,6 +6,7 @@ import { IGNORE_ENTRIES } from "@/lib/cursorignore"
 import { CursorignoreGenerator } from "@/components/cursorignore-generator"
 import { ManualChecklist } from "@/components/manual-checklist"
 import { CursorTweaks } from "@/components/cursor-tweaks"
+import { LaunchFlags } from "@/components/launch-flags"
 
 afterEach(() => {
   cleanup()
@@ -79,4 +80,33 @@ test("clearing a numeric tweak field does not snap the value to zero", () => {
 
   fireEvent.change(field, { target: { value: "12" } })
   assert.equal(field.value, "12")
+})
+
+test("toggling a launch flag updates the command preview", () => {
+  render(<LaunchFlags />)
+  assert.ok(screen.getByText("cursor"))
+
+  fireEvent.click(screen.getByRole("switch", { name: "Disable GPU acceleration" }))
+
+  assert.ok(screen.getByText("cursor --disable-gpu"))
+})
+
+test("enabling two launch flags emits them in catalog order", () => {
+  render(<LaunchFlags />)
+
+  fireEvent.click(screen.getByRole("switch", { name: "Disable all extensions" }))
+  fireEvent.click(screen.getByRole("switch", { name: "Disable GPU acceleration" }))
+
+  assert.ok(screen.getByText("cursor --disable-gpu --disable-extensions"))
+})
+
+test("turning a launch flag back off removes it from the command", () => {
+  render(<LaunchFlags />)
+  const toggle = screen.getByRole("switch", { name: "Disable GPU acceleration" })
+
+  fireEvent.click(toggle)
+  assert.ok(screen.getByText("cursor --disable-gpu"))
+
+  fireEvent.click(toggle)
+  assert.ok(screen.getByText("cursor"))
 })

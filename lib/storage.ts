@@ -14,6 +14,7 @@ import {
   type IgnoreState,
 } from "./cursorignore"
 import { defaultChecklistState, mergeChecklistState, type ChecklistState } from "./manual-steps"
+import { defaultFlagState, mergeFlagState, type FlagState } from "./launch-flags"
 
 const SETTINGS_KEY = "session-guard:settings"
 const STATE_KEY = "session-guard:state"
@@ -22,6 +23,7 @@ const PRESETS_KEY = "session-guard:tweak-presets"
 const IGNORE_KEY = "session-guard:cursorignore"
 const IGNORE_CUSTOM_KEY = "session-guard:cursorignore-custom"
 const CHECKLIST_KEY = "session-guard:checklist"
+const LAUNCH_FLAGS_KEY = "session-guard:launch-flags"
 
 export function loadSettings(): Settings {
   if (typeof window === "undefined") {
@@ -147,4 +149,20 @@ export function loadChecklist(): ChecklistState {
 
 export function saveChecklist(checklist: ChecklistState): void {
   window.localStorage.setItem(CHECKLIST_KEY, JSON.stringify(checklist))
+}
+
+export function loadLaunchFlags(): FlagState {
+  if (typeof window === "undefined") {
+    return defaultFlagState()
+  }
+  try {
+    const raw = window.localStorage.getItem(LAUNCH_FLAGS_KEY)
+    return raw ? mergeFlagState(JSON.parse(raw) as unknown) : defaultFlagState()
+  } catch {
+    return defaultFlagState()
+  }
+}
+
+export function saveLaunchFlags(flags: FlagState): void {
+  window.localStorage.setItem(LAUNCH_FLAGS_KEY, JSON.stringify(flags))
 }
