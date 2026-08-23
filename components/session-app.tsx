@@ -31,6 +31,7 @@ import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { CursorTweaks } from "@/components/cursor-tweaks"
 import { CursorignoreGenerator } from "@/components/cursorignore-generator"
+import { ManualChecklist } from "@/components/manual-checklist"
 import { ExportDialog } from "@/components/export-dialog"
 import {
   addWork,
@@ -644,6 +645,8 @@ export function SessionApp() {
       <CursorTweaks />
 
       <CursorignoreGenerator />
+
+      <ManualChecklist />
 
       <Card>
         <CardHeader>

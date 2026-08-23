@@ -7,13 +7,21 @@ import {
   type TweakPreset,
   type TweakState,
 } from "./tweaks"
-import { defaultIgnoreState, mergeIgnoreState, type IgnoreState } from "./cursorignore"
+import {
+  defaultIgnoreState,
+  mergeIgnoreState,
+  sanitizeCustomPatterns,
+  type IgnoreState,
+} from "./cursorignore"
+import { defaultChecklistState, mergeChecklistState, type ChecklistState } from "./manual-steps"
 
 const SETTINGS_KEY = "session-guard:settings"
 const STATE_KEY = "session-guard:state"
 const TWEAKS_KEY = "session-guard:tweaks"
 const PRESETS_KEY = "session-guard:tweak-presets"
 const IGNORE_KEY = "session-guard:cursorignore"
+const IGNORE_CUSTOM_KEY = "session-guard:cursorignore-custom"
+const CHECKLIST_KEY = "session-guard:checklist"
 
 export function loadSettings(): Settings {
   if (typeof window === "undefined") {
@@ -107,4 +115,36 @@ export function loadIgnore(): IgnoreState {
 
 export function saveIgnore(ignore: IgnoreState): void {
   window.localStorage.setItem(IGNORE_KEY, JSON.stringify(ignore))
+}
+
+export function loadIgnoreCustom(): string[] {
+  if (typeof window === "undefined") {
+    return []
+  }
+  try {
+    const raw = window.localStorage.getItem(IGNORE_CUSTOM_KEY)
+    return raw ? sanitizeCustomPatterns(JSON.parse(raw) as unknown) : []
+  } catch {
+    return []
+  }
+}
+
+export function saveIgnoreCustom(patterns: string[]): void {
+  window.localStorage.setItem(IGNORE_CUSTOM_KEY, JSON.stringify(patterns))
+}
+
+export function loadChecklist(): ChecklistState {
+  if (typeof window === "undefined") {
+    return defaultChecklistState()
+  }
+  try {
+    const raw = window.localStorage.getItem(CHECKLIST_KEY)
+    return raw ? mergeChecklistState(JSON.parse(raw) as unknown) : defaultChecklistState()
+  } catch {
+    return defaultChecklistState()
+  }
+}
+
+export function saveChecklist(checklist: ChecklistState): void {
+  window.localStorage.setItem(CHECKLIST_KEY, JSON.stringify(checklist))
 }
