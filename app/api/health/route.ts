@@ -1,10 +1,13 @@
+import { readFile } from "node:fs/promises"
 import { homedir } from "node:os"
+import { join } from "node:path"
 
 import { NextResponse } from "next/server"
 
 import { cursorPaths, type CursorPaths } from "@/lib/cursor-paths"
 import { THRESHOLDS, gradeMeasurements, type Measurement } from "@/lib/health"
 import { countDirectories, measurePath } from "@/lib/measure"
+import { summariseTrend } from "@/lib/trend"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -18,8 +21,20 @@ const PATH_BY_ID: Record<string, keyof CursorPaths> = {
   "blob-storage": "blobStorage",
 }
 
+/** The plugin's sample store. Absent or malformed simply means no trend. */
+async function readSamples(home: string): Promise<unknown> {
+  try {
+    const file = join(home, ".cursor", "cursor-manager", "state.json")
+    const parsed = JSON.parse(await readFile(file, "utf8")) as { health?: { samples?: unknown } }
+    return parsed?.health?.samples
+  } catch {
+    return null
+  }
+}
+
 export async function GET() {
-  const paths = cursorPaths(process.platform, homedir(), process.env.APPDATA || undefined)
+  const home = homedir()
+  const paths = cursorPaths(process.platform, home, process.env.APPDATA || undefined)
 
   const measurements: Measurement[] = await Promise.all(
     THRESHOLDS.map(async (threshold) => {
@@ -37,5 +52,6 @@ export async function GET() {
     }),
   )
 
-  return NextResponse.json(gradeMeasurements(measurements, Date.now()))
+  const report = gradeMeasurements(measurements, Date.now())
+  return NextResponse.json({ ...report, trend: summariseTrend(await readSamples(home)) })
 }

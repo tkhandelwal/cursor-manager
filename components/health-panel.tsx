@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/card"
 import { loadHealthSnapshot, saveHealthSnapshot } from "@/lib/storage"
 import { comparableDelta, formatBytes, type Finding, type HealthReport } from "@/lib/health"
+import type { Trend } from "@/lib/trend"
 
 const SEVERITY_CLASS: Record<Finding["severity"], string> = {
   ok: "border-border",
@@ -28,8 +29,24 @@ const SEVERITY_LABEL: Record<Finding["severity"], string> = {
   unknown: "could not be measured",
 }
 
+export function TrendLine({ trend }: { trend: Trend }) {
+  const days = trend.spanMs / (24 * 3_600_000)
+  const span = days >= 1 ? `${days.toFixed(days >= 10 ? 0 : 1)} days` : `${Math.round(trend.spanMs / 3_600_000)} hours`
+  const direction = trend.deltaBytes < 0 ? "smaller" : "larger"
+  // The window this rate was observed over can be arbitrarily stale (plugin
+  // disabled, app not opened in months) — display the end date alongside the
+  // rate so a live current size is never read as paired with a live rate.
+  const to = new Date(trend.last.at).toLocaleDateString()
+  return (
+    <p className="text-xs text-muted-foreground">
+      {formatBytes(Math.abs(trend.deltaBytes))} {direction} over {span} · ≈
+      {formatBytes(Math.round(Math.abs(trend.bytesPerDay)))} per day · {trend.sampleCount} samples · to {to}
+    </p>
+  )
+}
+
 export function HealthPanel() {
-  const [report, setReport] = useState<HealthReport | null>(null)
+  const [report, setReport] = useState<(HealthReport & { trend?: Trend | null }) | null>(null)
   const [previous, setPrevious] = useState<HealthReport | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -48,7 +65,7 @@ export function HealthPanel() {
       if (!response.ok) {
         throw new Error(`/api/health responded ${response.status}`)
       }
-      const next = (await response.json()) as HealthReport
+      const next = (await response.json()) as HealthReport & { trend?: Trend | null }
       setPrevious(report ?? loadHealthSnapshot())
       setReport(next)
       saveHealthSnapshot(next)
@@ -129,6 +146,9 @@ export function HealthPanel() {
                 </p>
                 {finding.guidance ? (
                   <p className="mt-1 text-xs">{finding.guidance}</p>
+                ) : null}
+                {finding.id === "chat-db" && finding.bytes !== null && report.trend ? (
+                  <TrendLine trend={report.trend} />
                 ) : null}
               </div>
             ))}

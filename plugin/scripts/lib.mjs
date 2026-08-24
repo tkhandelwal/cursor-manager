@@ -1,6 +1,7 @@
 import { homedir } from "node:os"
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
+import path from "node:path"
 
 export const DEFAULT_SETTINGS = {
   maxConcurrentAgents: 5,
@@ -54,6 +55,11 @@ export async function loadState() {
   return {
     conversations:
       saved.conversations && typeof saved.conversations === "object" ? saved.conversations : {},
+    // Without this the samples written on one session start are dropped on the
+    // next read, and the series never grows past one entry.
+    health: {
+      samples: Array.isArray(saved.health?.samples) ? saved.health.samples : [],
+    },
   }
 }
 
@@ -87,4 +93,54 @@ export function statusReport(state, settings) {
       : `- Room for ${room} more ${room === 1 ? "chat" : "chats"} before the cap.`,
   ]
   return lines.join("\n")
+}
+
+/** At most one sample per hour; keep the newest 180 (about a week of dense use). */
+export const SAMPLE_INTERVAL_MS = 3_600_000
+export const MAX_SAMPLES = 180
+
+/**
+ * Where Cursor keeps its data, per platform. Mirrors lib/cursor-paths.ts —
+ * duplicated deliberately because this file runs standalone from
+ * ~/.cursor/plugins and cannot import the app's TypeScript.
+ *
+ * Uses explicit win32/posix flavours so paths for one OS can be built and
+ * asserted from a host running another.
+ */
+export function cursorDataPaths(platform, home, appData) {
+  const p = platform === "win32" ? path.win32 : path.posix
+  let root
+  if (platform === "win32") {
+    root = p.join(appData ?? p.join(home, "AppData", "Roaming"), "Cursor")
+  } else if (platform === "darwin") {
+    root = p.join(home, "Library", "Application Support", "Cursor")
+  } else {
+    root = p.join(home, ".config", "Cursor")
+  }
+  return { chatDb: p.join(root, "User", "globalStorage", "state.vscdb") }
+}
+
+/**
+ * Append a size sample, honouring the interval and the cap. Pure: returns a
+ * new state rather than mutating, and takes `now` so the throttle is testable
+ * without a clock.
+ */
+export function recordHealthSample(state, bytes, now) {
+  const samples = Array.isArray(state?.health?.samples) ? state.health.samples : []
+  if (!Number.isFinite(bytes) || bytes < 0) {
+    return state
+  }
+
+  const newest = samples[samples.length - 1]
+  // Math.abs guards against a clock that moved backwards (NTP correction,
+  // timezone/dual-boot flip, a hand-edited `at`) putting the newest sample in
+  // the future: a plain `now - newest.at < SAMPLE_INTERVAL_MS` is true for
+  // ANY negative difference, however large, which would wedge sampling until
+  // wall-clock time caught back up.
+  if (newest && Math.abs(now - newest.at) < SAMPLE_INTERVAL_MS) {
+    return state
+  }
+
+  const next = [...samples, { at: now, chatDbBytes: bytes }]
+  return { ...state, health: { samples: next.slice(-MAX_SAMPLES) } }
 }
