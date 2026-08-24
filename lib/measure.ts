@@ -5,10 +5,25 @@ import { join } from "node:path"
 export const MAX_ENTRIES = 50_000
 export const MAX_MS = 5_000
 
+/**
+ * How many file sizes to read at once.
+ *
+ * Reading them one at a time is what made ordinary directories exhaust
+ * MAX_MS: measured on Windows, a single stat() costs ~13ms (antivirus
+ * inspects each file), so a 1,109-file workspaceStorage took 15.2s
+ * sequentially against a 5s cap. The same walk with 32 in flight takes
+ * 1.5s. The cap is meant to stop a pathological tree hanging the request,
+ * not to be a budget that normal directories bump into.
+ */
+export const STAT_CONCURRENCY = 32
+
 export type MeasureOptions = {
   maxEntries?: number
   maxMs?: number
   now?: () => number
+  concurrency?: number
+  /** Test seam for reading one file's size, mirroring the `now` seam. */
+  statSize?: (path: string) => Promise<number>
 }
 
 /**
@@ -28,6 +43,10 @@ export type MeasureOptions = {
  *     the total is incomplete.
  * A partial total must never be presented as complete, so all of the above
  * are reported as "unknown" (null), not as a number.
+ *
+ * The walk runs in two phases: enumerate the tree (readdir only, cheap),
+ * then read the collected files' sizes with bounded concurrency. Both
+ * phases honour the deadline.
  */
 export async function measurePath(
   target: string,
@@ -36,6 +55,8 @@ export async function measurePath(
   const maxEntries = options.maxEntries ?? MAX_ENTRIES
   const maxMs = options.maxMs ?? MAX_MS
   const now = options.now ?? Date.now
+  const concurrency = Math.max(1, options.concurrency ?? STAT_CONCURRENCY)
+  const statSize = options.statSize ?? (async (path: string) => (await stat(path)).size)
 
   let info
   try {
@@ -52,8 +73,11 @@ export async function measurePath(
   }
 
   const deadline = now() + maxMs
+
+  // --- Phase 1: enumerate the tree, collecting the files to measure ---
+
+  const files: string[] = []
   let entries = 0
-  let total = 0
   let skipped = false
   const stack = [target]
   // The stack starts with exactly one entry (the root), and nothing is
@@ -98,11 +122,7 @@ export async function measurePath(
       if (item.isDirectory()) {
         stack.push(full)
       } else if (item.isFile()) {
-        try {
-          total += (await stat(full)).size
-        } catch {
-          // vanished mid-walk; ignore
-        }
+        files.push(full)
       } else {
         // Neither a file nor a directory as far as Dirent is concerned —
         // notably a symlink, where isFile()/isDirectory() are both false.
@@ -113,6 +133,37 @@ export async function measurePath(
         skipped = true
       }
     }
+  }
+
+  // --- Phase 2: read the sizes, up to `concurrency` at a time ---
+
+  let next = 0
+  let total = 0
+  let timedOut = false
+
+  const workers = Array.from({ length: Math.min(concurrency, files.length) }, async () => {
+    while (next < files.length) {
+      if (now() > deadline) {
+        timedOut = true
+        return
+      }
+      const file = files[next]
+      next += 1
+      try {
+        // NOT `total += await statSize(file)`. That reads `total` before
+        // awaiting and assigns after, so concurrent workers clobber each
+        // other's additions. Await first, then add in one synchronous step.
+        const size = await statSize(file)
+        total += size
+      } catch {
+        // vanished mid-walk; ignore
+      }
+    }
+  })
+  await Promise.all(workers)
+
+  if (timedOut) {
+    return null
   }
 
   return skipped ? null : total

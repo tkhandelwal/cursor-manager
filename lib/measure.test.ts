@@ -174,3 +174,64 @@ test("exceeding the time cap while iterating a flat directory returns null", asy
 
   assert.equal(await measurePath(root, { maxMs: 1000, now }), null)
 })
+
+test("file sizes are read concurrently rather than one at a time", async () => {
+  const root = await fixture()
+  for (let index = 0; index < 24; index += 1) {
+    await writeFile(join(root, `f${index}.bin`), Buffer.alloc(10))
+  }
+
+  let inFlight = 0
+  let maxInFlight = 0
+  const statSize = async () => {
+    inFlight += 1
+    maxInFlight = Math.max(maxInFlight, inFlight)
+    await new Promise((resolve) => setTimeout(resolve, 5))
+    inFlight -= 1
+    return 10
+  }
+
+  const total = await measurePath(root, { statSize, concurrency: 8 })
+
+  assert.equal(total, 240, "parallel reads must still sum to the same total")
+  assert.ok(maxInFlight > 1, `expected concurrent stats, saw a maximum of ${maxInFlight} in flight`)
+})
+
+test("concurrency never exceeds the configured limit", async () => {
+  const root = await fixture()
+  for (let index = 0; index < 40; index += 1) {
+    await writeFile(join(root, `f${index}.bin`), Buffer.alloc(1))
+  }
+
+  let inFlight = 0
+  let maxInFlight = 0
+  const statSize = async () => {
+    inFlight += 1
+    maxInFlight = Math.max(maxInFlight, inFlight)
+    await new Promise((resolve) => setTimeout(resolve, 2))
+    inFlight -= 1
+    return 1
+  }
+
+  await measurePath(root, { statSize, concurrency: 4 })
+
+  assert.ok(maxInFlight <= 4, `concurrency limit exceeded: ${maxInFlight} in flight`)
+})
+
+test("the time cap still aborts while reading file sizes", async () => {
+  const root = await fixture()
+  for (let index = 0; index < 10; index += 1) {
+    await writeFile(join(root, `f${index}.bin`), Buffer.alloc(100))
+  }
+
+  // Stays under the deadline through enumeration, then blows past it once
+  // the size-reading phase starts.
+  let calls = 0
+  const now = () => {
+    calls += 1
+    return calls <= 3 ? 0 : 10_000
+  }
+
+  const result = await measurePath(root, { maxMs: 1_000, now, concurrency: 4 })
+  assert.equal(result, null, "a timeout during size reading must not return a partial total")
+})
