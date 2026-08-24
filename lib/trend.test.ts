@@ -77,6 +77,20 @@ test("malformed entries are dropped, and the rest still summarise", () => {
   assert.equal(trend.deltaBytes, 1_000)
 })
 
+test("a valid at paired with a malformed chatDbBytes is dropped", () => {
+  const trend = summariseTrend([
+    { at: 0, chatDbBytes: 1_000 },
+    { at: HOUR, chatDbBytes: "not a number" },
+    { at: HOUR * 2, chatDbBytes: Number.NaN },
+    { at: DAY, chatDbBytes: 2_000 },
+  ] as unknown)
+  assert.ok(trend)
+  assert.equal(trend.sampleCount, 2)
+  assert.equal(trend.first.at, 0)
+  assert.equal(trend.last.at, DAY)
+  assert.equal(trend.deltaBytes, 1_000)
+})
+
 test("non-array input yields no trend rather than throwing", () => {
   assert.equal(summariseTrend(undefined), null)
   assert.equal(summariseTrend(null), null)

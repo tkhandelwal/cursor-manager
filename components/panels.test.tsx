@@ -1,14 +1,20 @@
 import assert from "node:assert/strict"
-import { test } from "node:test"
+import { afterEach, test } from "node:test"
 import { renderToStaticMarkup } from "react-dom/server"
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react"
 
 import { CursorTweaks } from "@/components/cursor-tweaks"
 import { CursorignoreGenerator } from "@/components/cursorignore-generator"
 import { LaunchFlags } from "@/components/launch-flags"
 import { ServiceWorkerRegistrar } from "@/components/service-worker"
 import { ExportDialog } from "@/components/export-dialog"
-import { HealthPanel } from "@/components/health-panel"
+import { HealthPanel, TrendLine } from "@/components/health-panel"
 import { SessionApp } from "@/components/session-app"
+import type { Trend } from "@/lib/trend"
+
+afterEach(() => {
+  cleanup()
+})
 
 test("CursorTweaks renders every key, the include count, and the actions", () => {
   const html = renderToStaticMarkup(<CursorTweaks />)
@@ -77,4 +83,115 @@ test("ServiceWorkerRegistrar server-renders to nothing and touches no browser gl
 test("HealthPanel renders no trend line before any measurement", () => {
   const html = renderToStaticMarkup(<HealthPanel />)
   assert.doesNotMatch(html, /per day/, "a trend must not appear before there is data")
+})
+
+const DAY = 24 * 3_600_000
+
+function growthTrend(): Trend {
+  return {
+    first: { at: 0, chatDbBytes: 1_000 },
+    last: { at: 2 * DAY, chatDbBytes: 3_000 },
+    deltaBytes: 2_000,
+    spanMs: 2 * DAY,
+    bytesPerDay: 1_000,
+    sampleCount: 3,
+  }
+}
+
+test("TrendLine reads a positive delta as larger, and rounds a fractional rate", () => {
+  const trend: Trend = { ...growthTrend(), deltaBytes: 511, bytesPerDay: 510.6382978723404 }
+  const html = renderToStaticMarkup(<TrendLine trend={trend} />)
+  assert.match(html, /larger/)
+  assert.doesNotMatch(html, /smaller/)
+  assert.match(html, /≈511 B per day/, "the fractional rate must be rounded before formatting")
+})
+
+test("TrendLine reads a negative delta as smaller, not as growth", () => {
+  const trend: Trend = {
+    ...growthTrend(),
+    deltaBytes: -2_000,
+    bytesPerDay: -1_000,
+  }
+  const html = renderToStaticMarkup(<TrendLine trend={trend} />)
+  assert.match(html, /smaller/)
+  assert.doesNotMatch(html, /larger/)
+})
+
+function seededReport(chatDbBytes: number | null) {
+  return {
+    installFound: true,
+    measuredAt: 0,
+    findings: [
+      {
+        id: "chat-db",
+        label: "Chat history database",
+        path: "/x/state.vscdb",
+        bytes: chatDbBytes,
+        severity: chatDbBytes === null ? "unknown" : "ok",
+        guidance: null,
+      },
+      {
+        id: "workspace-storage",
+        label: "Workspace storage",
+        path: "/x/workspaceStorage",
+        bytes: 4_000,
+        severity: "ok",
+        guidance: null,
+      },
+    ],
+    trend: growthTrend(),
+  }
+}
+
+function stubFetch(report: unknown) {
+  const original = globalThis.fetch
+  globalThis.fetch = (async () => ({
+    ok: true,
+    status: 200,
+    json: async () => report,
+  })) as unknown as typeof fetch
+  return () => {
+    globalThis.fetch = original
+  }
+}
+
+test("the trend renders under the chat-db finding and nowhere else", async () => {
+  const restoreFetch = stubFetch(seededReport(2_000))
+  try {
+    render(<HealthPanel />)
+    fireEvent.click(screen.getByRole("button", { name: "Measure this install" }))
+    await screen.findByText(/per day/)
+
+    const chatDbRow = screen.getByText("Chat history database").closest("div")
+      ?.parentElement as HTMLElement
+    const workspaceRow = screen.getByText("Workspace storage").closest("div")
+      ?.parentElement as HTMLElement
+
+    assert.ok(within(chatDbRow).getByText(/per day/), "the trend belongs under chat-db")
+    assert.equal(
+      within(workspaceRow).queryByText(/per day/),
+      null,
+      "no other finding may show the trend",
+    )
+    assert.equal(screen.getAllByText(/per day/).length, 1)
+  } finally {
+    restoreFetch()
+  }
+})
+
+test("no trend renders when the chat-db finding itself could not be measured", async () => {
+  const restoreFetch = stubFetch(seededReport(null))
+  try {
+    render(<HealthPanel />)
+    fireEvent.click(screen.getByRole("button", { name: "Measure this install" }))
+    await screen.findByText("unmeasured")
+
+    assert.equal(
+      screen.queryByText(/per day/),
+      null,
+      "a metric that could not be measured must not also carry a growth claim",
+    )
+  } finally {
+    restoreFetch()
+  }
 })
