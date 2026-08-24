@@ -235,3 +235,58 @@ test("the time cap still aborts while reading file sizes", async () => {
   const result = await measurePath(root, { maxMs: 1_000, now, concurrency: 4 })
   assert.equal(result, null, "a timeout during size reading must not return a partial total")
 })
+
+test("a file that exists but cannot be read marks the walk incomplete", async () => {
+  const root = await fixture()
+  for (const name of ["a.bin", "b.bin"]) {
+    await writeFile(join(root, name), Buffer.alloc(100))
+  }
+
+  const statSize = async (path: string) => {
+    if (path.endsWith("b.bin")) {
+      const error = new Error("EPERM: operation not permitted") as NodeJS.ErrnoException
+      error.code = "EPERM"
+      throw error
+    }
+    return 100
+  }
+
+  const result = await measurePath(root, { statSize })
+  assert.equal(
+    result,
+    null,
+    "an unreadable file has a real but unknown size, so 100 would be a partial total presented as complete",
+  )
+})
+
+test("a file that vanished mid-walk does not mark the walk incomplete", async () => {
+  const root = await fixture()
+  for (const name of ["a.bin", "b.bin"]) {
+    await writeFile(join(root, name), Buffer.alloc(100))
+  }
+
+  const statSize = async (path: string) => {
+    if (path.endsWith("b.bin")) {
+      const error = new Error("ENOENT: no such file or directory") as NodeJS.ErrnoException
+      error.code = "ENOENT"
+      throw error
+    }
+    return 100
+  }
+
+  const result = await measurePath(root, { statSize })
+  assert.equal(result, 100, "a deleted file is genuinely not part of the total, so the total is still complete")
+})
+
+test("an unreadable file is reported even when it is the only entry", async () => {
+  const root = await fixture()
+  await writeFile(join(root, "only.bin"), Buffer.alloc(10))
+
+  const statSize = async () => {
+    const error = new Error("EACCES: permission denied") as NodeJS.ErrnoException
+    error.code = "EACCES"
+    throw error
+  }
+
+  assert.equal(await measurePath(root, { statSize }), null, "must not report 0 B for an unreadable file")
+})

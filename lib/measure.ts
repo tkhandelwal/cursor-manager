@@ -40,7 +40,12 @@ export type MeasureOptions = {
  *   - an entry that is neither a plain file nor a directory (e.g. a
  *     symlink) — it is deliberately NOT traversed or counted (this is what
  *     keeps the walk cycle-safe without a visited-set), but that also means
- *     the total is incomplete.
+ *     the total is incomplete;
+ *   - a file whose size could not be read for any reason other than it
+ *     having been deleted — it is still on disk taking up space we failed
+ *     to account for.
+ * A file that vanished mid-walk (ENOENT) is the one exception: it is no
+ * longer on disk, so omitting it leaves the total both correct and complete.
  * A partial total must never be presented as complete, so all of the above
  * are reported as "unknown" (null), not as a number.
  *
@@ -155,8 +160,20 @@ export async function measurePath(
         // other's additions. Await first, then add in one synchronous step.
         const size = await statSize(file)
         total += size
-      } catch {
-        // vanished mid-walk; ignore
+      } catch (error) {
+        // Two very different failures land here and must not be conflated:
+        //
+        //   ENOENT — the file was deleted between readdir and now. It is
+        //     genuinely no longer part of what is on disk, so leaving it out
+        //     keeps the total correct and complete.
+        //
+        //   anything else (EPERM, EACCES, EBUSY, EIO) — the file is still
+        //     there with a real size we could not read. Leaving it out makes
+        //     the total silently smaller than reality, which could grade a
+        //     bloated directory as "ok".
+        if ((error as NodeJS.ErrnoException)?.code !== "ENOENT") {
+          skipped = true
+        }
       }
     }
   })
