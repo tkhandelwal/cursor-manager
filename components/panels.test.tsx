@@ -73,3 +73,8 @@ test("ServiceWorkerRegistrar server-renders to nothing and touches no browser gl
   // boundary holds and that it contributes no markup.
   assert.equal(renderToStaticMarkup(<ServiceWorkerRegistrar />), "")
 })
+
+test("HealthPanel renders no trend line before any measurement", () => {
+  const html = renderToStaticMarkup(<HealthPanel />)
+  assert.doesNotMatch(html, /per day/, "a trend must not appear before there is data")
+})
