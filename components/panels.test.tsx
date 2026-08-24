@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server"
 import { CursorTweaks } from "@/components/cursor-tweaks"
 import { CursorignoreGenerator } from "@/components/cursorignore-generator"
 import { LaunchFlags } from "@/components/launch-flags"
+import { ServiceWorkerRegistrar } from "@/components/service-worker"
 import { ExportDialog } from "@/components/export-dialog"
 import { HealthPanel } from "@/components/health-panel"
 import { SessionApp } from "@/components/session-app"
@@ -64,4 +65,11 @@ test("SessionApp renders the seeded dashboard end to end", () => {
   assert.match(html, /Launch flags/)
   assert.match(html, /Install health/)
   assert.match(html, /Activity/)
+})
+
+test("ServiceWorkerRegistrar server-renders to nothing and touches no browser globals", () => {
+  // It reads navigator/document, which do not exist during SSR. If that ran on
+  // the server the whole page would fail to render, so this asserts the client
+  // boundary holds and that it contributes no markup.
+  assert.equal(renderToStaticMarkup(<ServiceWorkerRegistrar />), "")
 })
