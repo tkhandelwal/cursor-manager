@@ -19,6 +19,24 @@ Reload Window → **Customize → Plugins** → enable **cursor-manager** (user 
 
 Then run **`/steroids`** in Agent chat to merge hidden `settings.json` keys and print the UI-only checklist.
 
+### If you will run `gh` against this repo
+
+Only needed if you are signed in to more than one GitHub account — otherwise skip
+it. Once per shell:
+
+```bash
+source scripts/gh-env.sh          # bash / Git Bash
+```
+
+```powershell
+. .\scripts\gh-env.ps1            # PowerShell
+```
+
+Without it, `gh pr` and friends can fail with a permissions error, because `gh`
+resolves its account from one machine-wide setting that any other shell can
+change. See [Working with `gh` on this repo](#working-with-gh-on-this-repo) for
+what it does and why. Plain `git` never needs it.
+
 ## Slash commands
 
 | Command | What it does |
@@ -98,8 +116,11 @@ its own — sometimes between two consecutive commands — and `gh pr` calls the
 fail with a permissions error. Pin it for the current shell:
 
 ```bash
-source scripts/gh-env.sh      # bash / Git Bash
-. .scriptsgh-env.ps1        # PowerShell
+source scripts/gh-env.sh          # bash / Git Bash
+```
+
+```powershell
+. .\scripts\gh-env.ps1            # PowerShell
 ```
 
 That exports `GH_TOKEN`, which overrides the active account entirely. The token
