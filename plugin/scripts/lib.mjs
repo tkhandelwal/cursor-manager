@@ -128,12 +128,17 @@ export function cursorDataPaths(platform, home, appData) {
 export function recordHealthSample(state, bytes, now) {
   const samples = Array.isArray(state?.health?.samples) ? state.health.samples : []
   if (!Number.isFinite(bytes) || bytes < 0) {
-    return { ...state, health: { samples } }
+    return state
   }
 
   const newest = samples[samples.length - 1]
-  if (newest && now - newest.at < SAMPLE_INTERVAL_MS) {
-    return { ...state, health: { samples } }
+  // Math.abs guards against a clock that moved backwards (NTP correction,
+  // timezone/dual-boot flip, a hand-edited `at`) putting the newest sample in
+  // the future: a plain `now - newest.at < SAMPLE_INTERVAL_MS` is true for
+  // ANY negative difference, however large, which would wedge sampling until
+  // wall-clock time caught back up.
+  if (newest && Math.abs(now - newest.at) < SAMPLE_INTERVAL_MS) {
+    return state
   }
 
   const next = [...samples, { at: now, chatDbBytes: bytes }]

@@ -133,3 +133,36 @@ test("recordHealthSample ignores a non-finite size rather than storing junk", ()
   const next = recordHealthSample(emptyState(), Number.NaN, HOUR)
   assert.equal(next.health.samples.length, 0)
 })
+
+test("recordHealthSample returns the same state instance when the size is not finite", () => {
+  const state = emptyState()
+  const next = recordHealthSample(state, Number.NaN, HOUR)
+  assert.equal(next, state, "nothing was sampled, so no fresh object should be allocated")
+})
+
+test("recordHealthSample returns the same state instance when throttled", () => {
+  const state = recordHealthSample(emptyState(), 1000, 5 * HOUR)
+  const next = recordHealthSample(state, 2000, 5 * HOUR + SAMPLE_INTERVAL_MS - 1)
+  // session-start.mjs decides whether to save with `sampled !== state`. If
+  // this early return allocated a fresh object, that guard would be true
+  // after every throttled call too, saving on nearly every session start.
+  assert.equal(next, state, "no write is needed when nothing was appended")
+})
+
+test("recordHealthSample accepts a new sample when the newest sample's clock is in the future", () => {
+  // Simulates a backward clock jump (NTP correction, dual-boot tz flip, a
+  // hand-edited `at`): the newest recorded sample is far in the future
+  // relative to the current `now`. A plain `now - newest.at < INTERVAL`
+  // would be true for any negative difference, however large, and would
+  // wedge sampling forever until wall-clock time caught back up.
+  const future = 10 * SAMPLE_INTERVAL_MS
+  const state = recordHealthSample(emptyState(), 1000, future)
+  const now = 0
+  const next = recordHealthSample(state, 2000, now)
+  assert.equal(
+    next.health.samples.length,
+    2,
+    "a backward clock jump must not wedge sampling forever",
+  )
+  assert.equal(next.health.samples[1].chatDbBytes, 2000)
+})

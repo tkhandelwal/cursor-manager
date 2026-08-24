@@ -40,7 +40,13 @@ if (id) {
   }
 }
 if (id || sampled !== state) {
-  await saveState(sampled)
+  try {
+    await saveState(sampled)
+  } catch {
+    // Disk full, permission error, AV lock, roaming-profile hiccup, etc. This
+    // hook's contract is to hand Cursor JSON on stdout; persisting state is
+    // best-effort and must never stop that from happening.
+  }
 }
 
 writeHook({ additional_context: capMessage(activeCount(sampled), settings) })
