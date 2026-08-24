@@ -90,6 +90,28 @@ npm run dev   # http://localhost:43127
 
 Scripts: `npm run lint`, `npm test` (guard + tweaks + plugin + component tests), `npm run build`.
 
+## Working with `gh` on this repo
+
+`gh` picks its account from a machine-wide "active account" setting. If you are
+signed in to more than one GitHub account it can drift back to the other one on
+its own — sometimes between two consecutive commands — and `gh pr` calls then
+fail with a permissions error. Pin it for the current shell:
+
+```bash
+source scripts/gh-env.sh      # bash / Git Bash
+. .scriptsgh-env.ps1        # PowerShell
+```
+
+That exports `GH_TOKEN`, which overrides the active account entirely. The token
+is read from `gh`'s keyring each time and never written to disk.
+
+It is **shell**-scoped, not repo-scoped: every `gh` command in that shell uses
+this account, including in other directories. Open a new shell to work on
+another account.
+
+Git itself is unaffected either way — the remote uses SSH (`github-personal`),
+which does not consult `gh` at all.
+
 ## Repo
 
 | | |
