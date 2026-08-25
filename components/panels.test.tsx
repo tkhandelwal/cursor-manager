@@ -196,6 +196,77 @@ test("no trend renders when the chat-db finding itself could not be measured", a
   }
 })
 
+test("directoryTrends attribute each metric's own rate to its own row, not another metric's", async () => {
+  // Distinguishable on purpose: a transposed lookup (workspace-storage's rate
+  // rendered under cached-data, or vice versa) must fail loudly, not pass
+  // because both rows happen to show the same number.
+  const workspaceTrend: Trend = { ...growthTrend(), deltaBytes: 700, bytesPerDay: 700 }
+  const cachedTrend: Trend = { ...growthTrend(), deltaBytes: 2_097_152, bytesPerDay: 2_097_152 }
+  const report = {
+    installFound: true,
+    measuredAt: 0,
+    findings: [
+      {
+        id: "workspace-storage",
+        label: "Workspace storage",
+        path: "/x/workspaceStorage",
+        bytes: 4_000,
+        severity: "ok",
+        guidance: null,
+      },
+      {
+        id: "cached-data",
+        label: "Cached data",
+        path: "/x/cachedData",
+        bytes: 6_000,
+        severity: "ok",
+        guidance: null,
+      },
+    ],
+    directoryTrends: {
+      "workspace-storage": workspaceTrend,
+      "cached-data": cachedTrend,
+    },
+  }
+  const restoreFetch = stubFetch(report)
+  try {
+    render(<HealthPanel />)
+    fireEvent.click(screen.getByRole("button", { name: "Measure this install" }))
+    await screen.findAllByText(/per day/)
+
+    const workspaceRow = screen.getByText("Workspace storage").closest("div")
+      ?.parentElement as HTMLElement
+    const cachedRow = screen.getByText("Cached data").closest("div")?.parentElement as HTMLElement
+
+    // Text spans sibling nodes within the trend line ("≈700 B" then " per
+    // day"), so match against the row's full textContent rather than a
+    // single-node query.
+    assert.match(
+      workspaceRow.textContent ?? "",
+      /700 B per day/,
+      "workspace-storage's own rate must land on its own row",
+    )
+    assert.doesNotMatch(
+      workspaceRow.textContent ?? "",
+      /2\.0 MB per day/,
+      "cached-data's rate must not leak onto workspace-storage's row",
+    )
+
+    assert.match(
+      cachedRow.textContent ?? "",
+      /2\.0 MB per day/,
+      "cached-data's own rate must land on its own row",
+    )
+    assert.doesNotMatch(
+      cachedRow.textContent ?? "",
+      /700 B per day/,
+      "workspace-storage's rate must not leak onto cached-data's row",
+    )
+  } finally {
+    restoreFetch()
+  }
+})
+
 test("TrendLine keeps a sub-day span precise enough to agree with the rate", () => {
   // 241.3 MB over 5.52 hours is ≈1.0 GB/day. Rounding the span to a whole
   // "6 hours" made the line self-contradictory: 241.3 MB over a literal six
@@ -228,7 +299,7 @@ test("TrendLine drops the decimal on a long sub-day span, as it does for days", 
 
 test("TotalTrendLine states the install-wide rate and its coverage", () => {
   const html = renderToStaticMarkup(
-    <TotalTrendLine total={{ bytesPerDay: 511.4, covered: 4, total: 5 }} />,
+    <TotalTrendLine total={{ bytesPerDay: 511.4, covered: 4, total: 5, through: DAY }} />,
   )
   assert.match(html, /≈511 B/, "the fractional rate must be rounded before formatting")
   assert.match(html, /larger per day/)
@@ -237,15 +308,34 @@ test("TotalTrendLine states the install-wide rate and its coverage", () => {
 
 test("TotalTrendLine reads a net shrink as smaller, not as growth", () => {
   const html = renderToStaticMarkup(
-    <TotalTrendLine total={{ bytesPerDay: -2_000, covered: 5, total: 5 }} />,
+    <TotalTrendLine total={{ bytesPerDay: -2_000, covered: 5, total: 5, through: DAY }} />,
   )
   assert.match(html, /smaller per day/)
   assert.doesNotMatch(html, /larger/)
 })
 
-test("TotalTrendLine does not claim a total size it cannot compute honestly", () => {
+test("TotalTrendLine dates the rate by the oldest contributor, not the newest", () => {
+  const through = 2 * DAY
   const html = renderToStaticMarkup(
-    <TotalTrendLine total={{ bytesPerDay: 1_000, covered: 2, total: 5 }} />,
+    <TotalTrendLine total={{ bytesPerDay: 1_000, covered: 3, total: 5, through }} />,
   )
-  assert.doesNotMatch(html, /Total:/, "totalBytes counts an unmeasured metric as zero")
+  assert.match(
+    html,
+    new RegExp(new Date(through).toLocaleDateString().replace(/\//g, "\\/")),
+    "the total line must date itself, the same way TrendLine does",
+  )
+})
+
+test("TotalTrendLine does not claim a total size it cannot compute honestly", () => {
+  const through = 2 * DAY
+  const html = renderToStaticMarkup(
+    <TotalTrendLine total={{ bytesPerDay: 1_000, covered: 2, total: 5, through }} />,
+  )
+  // Asserting the full rendered string, not just the absence of one literal
+  // wording ("Total:") — a regex for one forbidden phrase lets any other
+  // added content (e.g. "Install size: 25.1 GB") through silently.
+  assert.equal(
+    html,
+    `<p class="text-xs text-muted-foreground">Whole install: ≈1000 B larger per day · across 2 of 5 metrics · through ${new Date(through).toLocaleDateString()}</p>`,
+  )
 })

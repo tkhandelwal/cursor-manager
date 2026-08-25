@@ -1,7 +1,7 @@
 # Directory trends — design
 
 Date: 2026-08-25
-Status: approved, not yet implemented
+Status: implemented 2026-08-25 (8c20ef9)
 Follows: `2026-08-24-health-trend-tracking-design.md`
 
 ## Problem

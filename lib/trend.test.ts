@@ -127,12 +127,12 @@ test("fromChatDbSamples passes a non-array through untouched", () => {
   assert.equal(summariseTrend(fromChatDbSamples({ nope: true })), null)
 })
 
-function rate(bytesPerDay: number): Trend {
+function rate(bytesPerDay: number, lastAt = DAY): Trend {
   return {
     first: { at: 0, bytes: 0 },
-    last: { at: DAY, bytes: bytesPerDay },
+    last: { at: lastAt, bytes: bytesPerDay },
     deltaBytes: bytesPerDay,
-    spanMs: DAY,
+    spanMs: lastAt,
     bytesPerDay,
     sampleCount: 2,
   }
@@ -161,4 +161,19 @@ test("summariseTotal lets a shrinking metric offset a growing one", () => {
   assert.ok(total)
   assert.equal(total.bytesPerDay, 300)
   assert.equal(total.covered, 2)
+})
+
+test("summariseTotal's through is the oldest contributor's end, not the newest", () => {
+  // A summed figure is only as fresh as its stalest input: if one metric's
+  // series has not advanced in months, the sum is stale from that date on,
+  // no matter how current the other contributors are.
+  const total = summariseTotal([rate(100, 3 * DAY), rate(50, DAY), rate(20, 2 * DAY)])
+  assert.ok(total)
+  assert.equal(total.through, DAY)
+})
+
+test("summariseTotal's through ignores metrics that did not contribute", () => {
+  const total = summariseTotal([null, rate(100, 5 * DAY), null])
+  assert.ok(total)
+  assert.equal(total.through, 5 * DAY)
 })

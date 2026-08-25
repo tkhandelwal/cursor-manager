@@ -1,11 +1,11 @@
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises"
+import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { dirname, join } from "node:path"
 
 import { NextResponse } from "next/server"
 
 import { cursorPaths, type CursorPaths } from "@/lib/cursor-paths"
-import { recordDirectorySample, seriesFor } from "@/lib/directory-samples"
+import { recordDirectorySample, seriesFor, type DirectoryStore } from "@/lib/directory-samples"
 import { THRESHOLDS, gradeMeasurements, type Measurement } from "@/lib/health"
 import { countDirectories, measurePath } from "@/lib/measure"
 import { fromChatDbSamples, summariseTotal, summariseTrend, type Trend } from "@/lib/trend"
@@ -57,15 +57,18 @@ async function readDirectoryStore(home: string): Promise<unknown> {
  * The directory is created when missing so directory trends work without the
  * plugin installed — unlike the chat-db series, they do not depend on it.
  */
-async function writeDirectoryStore(home: string, store: unknown): Promise<void> {
+async function writeDirectoryStore(home: string, store: DirectoryStore): Promise<void> {
+  const file = directoryFile(home)
+  const temp = `${file}.${process.pid}.tmp`
   try {
-    const file = directoryFile(home)
-    const temp = `${file}.${process.pid}.tmp`
     await mkdir(dirname(file), { recursive: true })
     await writeFile(temp, JSON.stringify(store), "utf8")
     await rename(temp, file)
   } catch {
-    // Intentionally ignored.
+    // Intentionally ignored — but a persistently failing rename (e.g. the
+    // rename step keeps throwing) must not leave a `.tmp` file beside the
+    // store forever, so clean it up too.
+    await unlink(temp).catch(() => {})
   }
 }
 
@@ -89,17 +92,18 @@ export async function GET() {
     }),
   )
 
-  const report = gradeMeasurements(measurements, Date.now())
+  const now = Date.now()
+  const report = gradeMeasurements(measurements, now)
 
   // chat-db is excluded here, not inside recordDirectorySample: the plugin owns
   // that series, and a second copy written on a different cadence would be a
   // second source of truth for the same number.
   const directoryMeasurements = measurements.filter((measurement) => measurement.id !== "chat-db")
-  const store = recordDirectorySample(
-    await readDirectoryStore(home),
-    directoryMeasurements,
-    Date.now(),
-  )
+  const store = recordDirectorySample(await readDirectoryStore(home), directoryMeasurements, now)
+  // Writing on every GET (rather than only when a sample is actually due) is
+  // fine only because the panel fetches this route on a button click, not on
+  // a poll — recordDirectorySample's own throttling keeps that cheap. If this
+  // route is ever made to poll, this write must be gated instead.
   await writeDirectoryStore(home, store)
 
   const trend = summariseTrend(fromChatDbSamples(await readSamples(home)))

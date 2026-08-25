@@ -90,6 +90,15 @@ export type TotalTrend = {
   covered: number
   /** Metrics the panel grades, whether or not they have a rate. */
   total: number
+  /**
+   * The oldest `last.at` among the contributing trends — deliberately the
+   * oldest, not the newest. A summed rate is only as fresh as its stalest
+   * input: one metric's series can go quiet (plugin disabled, app not opened
+   * in months) while the rest keep advancing, and the sum inherits that
+   * staleness from the moment the stale one stopped, not from whenever the
+   * freshest metric last updated.
+   */
+  through: number
 }
 
 /**
@@ -113,5 +122,6 @@ export function summariseTotal(trends: (Trend | null)[]): TotalTrend | null {
     bytesPerDay: present.reduce((sum, trend) => sum + trend.bytesPerDay, 0),
     covered: present.length,
     total: trends.length,
+    through: Math.min(...present.map((trend) => trend.last.at)),
   }
 }

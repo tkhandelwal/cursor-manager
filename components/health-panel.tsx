@@ -61,10 +61,16 @@ export function TotalTrendLine({ total }: { total: TotalTrend }) {
   // unmeasured metric would quietly shrink the headline instead of making it
   // unknown — the same shape as the 0 B and phantom-savings failures already
   // removed from this codebase.
+  //
+  // Same staleness caveat as TrendLine, but dated by the oldest contributor,
+  // not the newest: a summed rate is only as fresh as its stalest input, so
+  // showing the freshest date here would read a possibly months-old
+  // contribution as current.
+  const through = new Date(total.through).toLocaleDateString()
   return (
     <p className="text-xs text-muted-foreground">
       Whole install: ≈{formatBytes(Math.round(Math.abs(total.bytesPerDay)))} {direction} per day ·
-      across {total.covered} of {total.total} metrics
+      across {total.covered} of {total.total} metrics · through {through}
     </p>
   )
 }
@@ -159,37 +165,32 @@ export function HealthPanel() {
         {report?.installFound ? (
           <div className="space-y-2">
             {report.totalTrend ? <TotalTrendLine total={report.totalTrend} /> : null}
-            {report.findings.map((finding) => (
-              <div
-                key={finding.id}
-                className={`rounded-xl border px-3 py-2 ${SEVERITY_CLASS[finding.severity]}`}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-sm font-medium">{finding.label}</span>
-                  <span className="font-mono text-sm">
-                    {finding.bytes === null ? "unmeasured" : formatBytes(finding.bytes)}
-                  </span>
+            {report.findings.map((finding) => {
+              const trend =
+                finding.id === "chat-db" ? report.trend : report.directoryTrends?.[finding.id]
+              return (
+                <div
+                  key={finding.id}
+                  className={`rounded-xl border px-3 py-2 ${SEVERITY_CLASS[finding.severity]}`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-medium">{finding.label}</span>
+                    <span className="font-mono text-sm">
+                      {finding.bytes === null ? "unmeasured" : formatBytes(finding.bytes)}
+                    </span>
+                  </div>
+                  <p className="font-mono text-xs break-all text-muted-foreground">{finding.path}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {SEVERITY_LABEL[finding.severity]}
+                    {finding.detail ? ` · ${finding.detail}` : ""}
+                  </p>
+                  {finding.guidance ? (
+                    <p className="mt-1 text-xs">{finding.guidance}</p>
+                  ) : null}
+                  {finding.bytes !== null && trend ? <TrendLine trend={trend} /> : null}
                 </div>
-                <p className="font-mono text-xs break-all text-muted-foreground">{finding.path}</p>
-                <p className="text-xs text-muted-foreground">
-                  {SEVERITY_LABEL[finding.severity]}
-                  {finding.detail ? ` · ${finding.detail}` : ""}
-                </p>
-                {finding.guidance ? (
-                  <p className="mt-1 text-xs">{finding.guidance}</p>
-                ) : null}
-                {finding.bytes !== null &&
-                (finding.id === "chat-db" ? report.trend : report.directoryTrends?.[finding.id]) ? (
-                  <TrendLine
-                    trend={
-                      (finding.id === "chat-db"
-                        ? report.trend
-                        : report.directoryTrends?.[finding.id]) as Trend
-                    }
-                  />
-                ) : null}
-              </div>
-            ))}
+              )
+            })}
           </div>
         ) : null}
       </CardContent>
