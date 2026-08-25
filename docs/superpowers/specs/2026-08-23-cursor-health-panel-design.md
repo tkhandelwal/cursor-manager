@@ -1,7 +1,7 @@
 # Cursor health panel — design
 
 Date: 2026-08-23
-Status: approved, not yet implemented
+Status: implemented 2026-08-23 (031a5b1)
 
 ## Problem
 

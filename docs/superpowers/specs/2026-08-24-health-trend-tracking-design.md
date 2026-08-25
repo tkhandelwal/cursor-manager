@@ -1,7 +1,7 @@
 # Health trend tracking — design
 
 Date: 2026-08-24
-Status: approved, not yet implemented
+Status: implemented 2026-08-24 (cfc2031)
 Follows: `2026-08-23-cursor-health-panel-design.md` (deferred "Trend over time")
 
 ## Problem

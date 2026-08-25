@@ -52,7 +52,7 @@
 
 **Critical:** `loadState` currently rebuilds the state object with only `conversations`, so anything else in `state.json` is discarded on the next read. Samples would never accumulate. Fixing that is part of this task, not an afterthought.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Add to `plugin/scripts/lib.test.mjs` — first extend the import line to:
 
@@ -153,12 +153,12 @@ test("recordHealthSample ignores a non-finite size rather than storing junk", ()
 })
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `npx tsx --test plugin/scripts/lib.test.mjs`
 Expected: FAIL — `cursorDataPaths`, `recordHealthSample`, `MAX_SAMPLES`, `SAMPLE_INTERVAL_MS` are not exported. If it fails for another reason, fix that first.
 
-- [ ] **Step 3: Implement in `plugin/scripts/lib.mjs`**
+- [x] **Step 3: Implement in `plugin/scripts/lib.mjs`**
 
 Add `path` to the existing imports at the top of the file:
 
@@ -233,7 +233,7 @@ export async function loadState() {
 }
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `npx tsx --test plugin/scripts/lib.test.mjs`
 Expected: PASS — 10 existing plus 9 new.
@@ -244,7 +244,7 @@ Expected: 132 pass, 0 fail.
 Run: `npm run lint`
 Expected: exit 0.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add plugin/scripts/lib.mjs plugin/scripts/lib.test.mjs
@@ -264,7 +264,7 @@ git commit -m "Add chat-db sampling primitives to the plugin"
 
 This hook script has **no unit test**, matching the repo's existing convention — importing a hook script executes it, so only the pure helpers in `lib.mjs` are unit-tested (AGENTS.md). It is verified by running it the way Cursor runs it.
 
-- [ ] **Step 1: Implement the sampling**
+- [x] **Step 1: Implement the sampling**
 
 In `plugin/scripts/session-start.mjs`, extend the import from `./lib.mjs` to include `cursorDataPaths` and `recordHealthSample`, and add `stat` at the top:
 
@@ -306,7 +306,7 @@ if (id || sampled !== state) {
 writeHook({ additional_context: capMessage(activeCount(sampled), settings) })
 ```
 
-- [ ] **Step 2: Back up your real state file before exercising the hook**
+- [x] **Step 2: Back up your real state file before exercising the hook**
 
 This writes to your actual `~/.cursor/cursor-manager/state.json`.
 
@@ -314,7 +314,7 @@ This writes to your actual `~/.cursor/cursor-manager/state.json`.
 cp ~/.cursor/cursor-manager/state.json ~/.cursor/cursor-manager/state.json.bak 2>/dev/null || echo "no existing state file"
 ```
 
-- [ ] **Step 3: Run the hook the way Cursor runs it**
+- [x] **Step 3: Run the hook the way Cursor runs it**
 
 ```bash
 echo '{"conversation_id":"plan-test-1"}' | node plugin/scripts/session-start.mjs
@@ -330,7 +330,7 @@ node -e "const s=require(require('os').homedir()+'/.cursor/cursor-manager/state.
 
 Expected: exactly one sample, with a plausible `chatDbBytes` (a large number — the author's chat DB is ~20 billion bytes).
 
-- [ ] **Step 4: Verify the interval throttle against the real file**
+- [x] **Step 4: Verify the interval throttle against the real file**
 
 Run the same hook command twice more:
 
@@ -342,7 +342,7 @@ node -e "const s=require(require('os').homedir()+'/.cursor/cursor-manager/state.
 
 Expected: still **1** sample. Three session starts within an hour must produce one sample, which is the whole point of the throttle.
 
-- [ ] **Step 5: Verify a missing chat database does not break the hook**
+- [x] **Step 5: Verify a missing chat database does not break the hook**
 
 Temporarily change the `cursorDataPaths(...)` call in the try block to `{ chatDb: "/definitely/not/here" }`, then:
 
@@ -352,7 +352,7 @@ echo '{"conversation_id":"plan-test-4"}' | node plugin/scripts/session-start.mjs
 
 Expected: still prints the normal `additional_context` JSON and exits 0 — no stack trace, no non-zero exit. This is the "a hook must never break a Cursor session" constraint, and it is the single most important behaviour in this task. **Then revert the change.**
 
-- [ ] **Step 6: Clean up the test conversations and confirm the suite**
+- [x] **Step 6: Clean up the test conversations and confirm the suite**
 
 ```bash
 node -e "
@@ -367,7 +367,7 @@ console.log('removed plan-test conversations; samples kept:', s.health.samples.l
 
 Run: `npm test` → 132 pass. Run: `npm run lint` → exit 0.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add plugin/scripts/session-start.mjs
@@ -387,7 +387,7 @@ git commit -m "Sample the chat database size on session start"
 - Consumes: nothing (pure; takes the raw `samples` array).
 - Produces: types `Sample`, `Trend`; constants `MIN_SAMPLES` (2), `MIN_SPAN_MS` (3_600_000); function `summariseTrend(samples: unknown): Trend | null`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `lib/trend.test.ts`:
 
@@ -478,14 +478,14 @@ test("non-array input yields no trend rather than throwing", () => {
 })
 ```
 
-- [ ] **Step 2: Register the test file, then run it to verify it fails**
+- [x] **Step 2: Register the test file, then run it to verify it fails**
 
 In `package.json`, add `lib/trend.test.ts` to the `test` script immediately after `lib/manifest.test.ts`.
 
 Run: `npx tsx --test lib/trend.test.ts`
 Expected: FAIL with `Cannot find module './trend'`.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `lib/trend.ts`:
 
@@ -555,7 +555,7 @@ export function summariseTrend(samples: unknown): Trend | null {
 }
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `npx tsx --test lib/trend.test.ts`
 Expected: PASS, 8 tests.
@@ -563,7 +563,7 @@ Expected: PASS, 8 tests.
 Run: `npm test`
 Expected: 140 pass, 0 fail.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/trend.ts lib/trend.test.ts package.json
@@ -583,7 +583,7 @@ git commit -m "Add trend summarisation for the health sample series"
 - Consumes: `summariseTrend`, `Trend` (Task 3); `formatBytes` from `lib/health.ts`; the `health.samples` written by Tasks 1–2.
 - Produces: `trend: Trend | null` on the `/api/health` response body; a trend line in the panel.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 In `components/panels.test.tsx`, append:
 
@@ -594,14 +594,14 @@ test("HealthPanel renders no trend line before any measurement", () => {
 })
 ```
 
-- [ ] **Step 2: Run it to verify it fails**
+- [x] **Step 2: Run it to verify it fails**
 
 Run: `npx tsx --import ./test/setup-dom.ts --test components/panels.test.tsx`
 Expected: PASS immediately — the panel has no trend markup yet.
 
 This one is a guard rather than a driver: it locks in "nothing before data", which is the behaviour most at risk of regressing once the trend line exists. Note it in the report as a regression guard rather than claiming a red-to-green cycle.
 
-- [ ] **Step 3: Extend the route**
+- [x] **Step 3: Extend the route**
 
 In `app/api/health/route.ts`, add these imports:
 
@@ -639,7 +639,7 @@ In `GET`, capture the home directory once and include the trend in the response.
   return NextResponse.json({ ...report, trend: summariseTrend(await readSamples(home)) })
 ```
 
-- [ ] **Step 4: Render it in the panel**
+- [x] **Step 4: Render it in the panel**
 
 In `components/health-panel.tsx`, extend the health import to include `formatBytes` (already imported) and add:
 
@@ -677,13 +677,13 @@ Render it inside the `chat-db` finding block. In the `report.findings.map(...)` 
                 ) : null}
 ```
 
-- [ ] **Step 5: Run the tests, lint, and build**
+- [x] **Step 5: Run the tests, lint, and build**
 
 Run: `npm test` → 141 pass, 0 fail.
 Run: `npm run lint` → exit 0.
 Run: `npm run build` → exit 0.
 
-- [ ] **Step 6: Verify against a real series**
+- [x] **Step 6: Verify against a real series**
 
 The throttle means a genuine two-sample series takes an hour to accumulate. To verify the rendering now, write a synthetic series into your state file, check the panel, then restore:
 
@@ -715,7 +715,7 @@ Stop the dev server, then restore:
 mv ~/.cursor/cursor-manager/state.json.bak ~/.cursor/cursor-manager/state.json
 ```
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add app/api/health/route.ts components/health-panel.tsx components/panels.test.tsx
