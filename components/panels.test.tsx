@@ -89,8 +89,8 @@ const DAY = 24 * 3_600_000
 
 function growthTrend(): Trend {
   return {
-    first: { at: 0, chatDbBytes: 1_000 },
-    last: { at: 2 * DAY, chatDbBytes: 3_000 },
+    first: { at: 0, bytes: 1_000 },
+    last: { at: 2 * DAY, bytes: 3_000 },
     deltaBytes: 2_000,
     spanMs: 2 * DAY,
     bytesPerDay: 1_000,
@@ -201,8 +201,8 @@ test("TrendLine keeps a sub-day span precise enough to agree with the rate", () 
   // "6 hours" made the line self-contradictory: 241.3 MB over a literal six
   // hours is ≈965 MB/day, not the 1.0 GB the same line claims.
   const trend: Trend = {
-    first: { at: 0, chatDbBytes: 20_281_946_112 },
-    last: { at: 5.52 * 3_600_000, chatDbBytes: 20_534_951_936 },
+    first: { at: 0, bytes: 20_281_946_112 },
+    last: { at: 5.52 * 3_600_000, bytes: 20_534_951_936 },
     deltaBytes: 253_005_824,
     spanMs: 5.52 * 3_600_000,
     bytesPerDay: 1_100_025_321,
@@ -215,8 +215,8 @@ test("TrendLine keeps a sub-day span precise enough to agree with the rate", () 
 
 test("TrendLine drops the decimal on a long sub-day span, as it does for days", () => {
   const trend: Trend = {
-    first: { at: 0, chatDbBytes: 0 },
-    last: { at: 18.4 * 3_600_000, chatDbBytes: 1_000 },
+    first: { at: 0, bytes: 0 },
+    last: { at: 18.4 * 3_600_000, bytes: 1_000 },
     deltaBytes: 1_000,
     spanMs: 18.4 * 3_600_000,
     bytesPerDay: 1_304,
