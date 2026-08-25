@@ -8,7 +8,7 @@ import { CursorignoreGenerator } from "@/components/cursorignore-generator"
 import { LaunchFlags } from "@/components/launch-flags"
 import { ServiceWorkerRegistrar } from "@/components/service-worker"
 import { ExportDialog } from "@/components/export-dialog"
-import { HealthPanel, TrendLine } from "@/components/health-panel"
+import { HealthPanel, TotalTrendLine, TrendLine } from "@/components/health-panel"
 import { SessionApp } from "@/components/session-app"
 import type { Trend } from "@/lib/trend"
 
@@ -224,4 +224,28 @@ test("TrendLine drops the decimal on a long sub-day span, as it does for days", 
   }
   const html = renderToStaticMarkup(<TrendLine trend={trend} />)
   assert.match(html, /18 hours/, "past 10 the decimal is noise, matching the days branch")
+})
+
+test("TotalTrendLine states the install-wide rate and its coverage", () => {
+  const html = renderToStaticMarkup(
+    <TotalTrendLine total={{ bytesPerDay: 511.4, covered: 4, total: 5 }} />,
+  )
+  assert.match(html, /≈511 B/, "the fractional rate must be rounded before formatting")
+  assert.match(html, /larger per day/)
+  assert.match(html, /4 of 5 metrics/, "coverage must be shown, not implied")
+})
+
+test("TotalTrendLine reads a net shrink as smaller, not as growth", () => {
+  const html = renderToStaticMarkup(
+    <TotalTrendLine total={{ bytesPerDay: -2_000, covered: 5, total: 5 }} />,
+  )
+  assert.match(html, /smaller per day/)
+  assert.doesNotMatch(html, /larger/)
+})
+
+test("TotalTrendLine does not claim a total size it cannot compute honestly", () => {
+  const html = renderToStaticMarkup(
+    <TotalTrendLine total={{ bytesPerDay: 1_000, covered: 2, total: 5 }} />,
+  )
+  assert.doesNotMatch(html, /Total:/, "totalBytes counts an unmeasured metric as zero")
 })
