@@ -54,9 +54,11 @@ const deltaBytes = last.bytes - first.bytes
 
 - [ ] **Step 2: Rename the field in the existing tests**
 
-In `lib/trend.test.ts`, replace every occurrence of `chatDbBytes` with `bytes` (13 occurrences, including the two assertions `trend.first.chatDbBytes` / `trend.last.chatDbBytes` and the test titled `a valid at paired with a malformed chatDbBytes is dropped` — rename that title to `a valid at paired with a malformed bytes is dropped`).
+In `lib/trend.test.ts`, replace every occurrence of `chatDbBytes` with `bytes` (**23 occurrences**, including the two assertions `trend.first.chatDbBytes` / `trend.last.chatDbBytes` and the test titled `a valid at paired with a malformed chatDbBytes is dropped` — rename that title to `a valid at paired with a malformed bytes is dropped`). Every occurrence in this file is a `Sample` field, so a whole-file replace is correct here.
 
-In `components/panels.test.tsx`, replace `chatDbBytes` with `bytes` in every `Trend` fixture (the `growthTrend()` helper and any inline fixture below it).
+In `components/panels.test.tsx`, rename the field **only in the three `Trend` fixtures** — the `growthTrend()` helper (~line 92) and the two inline `const trend: Trend = {` fixtures (~lines 204 and 218).
+
+**Do not touch `seededReport(chatDbBytes: number | null)` (~line 120).** Its parameter happens to share the name but holds a `Measurement.bytes` value, not a `Sample` field. A whole-file replace in this file would rename it and make the diff misrepresent its own scope.
 
 `components/health-panel.tsx` needs no change — `TrendLine` reads `deltaBytes`, `spanMs`, `bytesPerDay`, `sampleCount`, and `last.at`, none of which are renamed.
 
@@ -746,7 +748,7 @@ Then replace the chat-db-only trend line at the bottom of each finding:
 - [ ] **Step 5: Run the tests, lint, and build**
 
 Run: `npm test`
-Expected: PASS, 172 tests. The existing `HealthPanel renders no trend line before any measurement` guard must still pass — with no data, neither line may appear.
+Expected: PASS, 171 tests. The existing `HealthPanel renders no trend line before any measurement` guard must still pass — with no data, neither line may appear.
 
 Run: `npm run lint`
 Expected: clean.
@@ -791,6 +793,6 @@ git commit -m "Show a trend for every metric, and one for the whole install"
 
 **Type consistency.** `Sample` is `{ at, bytes }` from Task 1 onward and is used with that shape in Task 2's `seriesFor` return and Task 3's `rate()` fixture. `DirectorySample.bytes` is `Record<string, number>` in Task 2 and indexed as such in Task 4. `TotalTrend` has the same three fields in Task 3, Task 4's response, and Task 5's component. `summariseTotal` takes `(Trend | null)[]` in Task 3 and is called with `[trend, ...Object.values(directoryTrends)]` in Task 4, which is exactly that type. `SAMPLE_INTERVAL_MS` and `MAX_SAMPLES` exist in both `lib/directory-samples.ts` and `plugin/scripts/lib.mjs` with equal values but no shared import, per the spec.
 
-**Test count arithmetic.** 151 baseline → 154 (Task 1, +3) → 164 (Task 2, +10) → 168 (Task 3, +4) → 168 (Task 4, +0 by design) → 172 (Task 5, +4).
+**Test count arithmetic.** 151 baseline → 154 (Task 1, +3) → 164 (Task 2, +10) → 168 (Task 3, +4) → 168 (Task 4, +0 by design) → 171 (Task 5, +3).
 
 **Known weakness.** Task 4 has no automated test, so the throttle, the temp-file rename, and the silent-failure guarantee rest on the manual steps. Steps 6 and 7 exist because those two behaviours — not growing the file on every reload, and not 500-ing when the disk refuses — are the ones whose regression would be least visible. A route-handler test harness would be better, and the repo does not have one; adding it is a larger change than this feature warrants.
