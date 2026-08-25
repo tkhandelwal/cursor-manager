@@ -50,6 +50,15 @@ traversal enters the plugin.
 - **No changes to `lib/measure.ts` caps.** Raising `MAX_MS` so large
   directories complete more often would slow every panel load to improve a
   secondary feature.
+- **A metric that is unmeasured *right now* still counts toward the total.**
+  Decided 2026-08-25, after review raised it. The row hides its trend line
+  when `bytes` is `null`, so "across 5 of 5 metrics" can sit above only four
+  visible lines. That mismatch is accepted deliberately: the metric's recorded
+  history is real, and dropping it would make the headline rate flicker as a
+  large directory caps out and completes on alternating loads — a number that
+  moves for reasons unrelated to growth is worse than one whose coverage
+  count needs a moment's thought. The `through` date is what gives the reader
+  the provenance to judge it.
 
 ## The sampling bias, named
 
