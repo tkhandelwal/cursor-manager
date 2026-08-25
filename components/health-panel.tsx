@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/card"
 import { loadHealthSnapshot, saveHealthSnapshot } from "@/lib/storage"
 import { comparableDelta, formatBytes, type Finding, type HealthReport } from "@/lib/health"
-import type { Trend } from "@/lib/trend"
+import type { Trend, TotalTrend } from "@/lib/trend"
 
 const SEVERITY_CLASS: Record<Finding["severity"], string> = {
   ok: "border-border",
@@ -55,8 +55,34 @@ export function TrendLine({ trend }: { trend: Trend }) {
   )
 }
 
+export function TotalTrendLine({ total }: { total: TotalTrend }) {
+  const direction = total.bytesPerDay < 0 ? "smaller" : "larger"
+  // No total size here on purpose: totalBytes sums `finding.bytes ?? 0`, so an
+  // unmeasured metric would quietly shrink the headline instead of making it
+  // unknown — the same shape as the 0 B and phantom-savings failures already
+  // removed from this codebase.
+  //
+  // Same staleness caveat as TrendLine, but dated by the oldest contributor,
+  // not the newest: a summed rate is only as fresh as its stalest input, so
+  // showing the freshest date here would read a possibly months-old
+  // contribution as current.
+  const through = new Date(total.through).toLocaleDateString()
+  return (
+    <p className="text-xs text-muted-foreground">
+      Whole install: ≈{formatBytes(Math.round(Math.abs(total.bytesPerDay)))} {direction} per day ·
+      across {total.covered} of {total.total} metrics · through {through}
+    </p>
+  )
+}
+
+type HealthResponse = HealthReport & {
+  trend?: Trend | null
+  directoryTrends?: Record<string, Trend | null>
+  totalTrend?: TotalTrend | null
+}
+
 export function HealthPanel() {
-  const [report, setReport] = useState<(HealthReport & { trend?: Trend | null }) | null>(null)
+  const [report, setReport] = useState<HealthResponse | null>(null)
   const [previous, setPrevious] = useState<HealthReport | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -75,7 +101,7 @@ export function HealthPanel() {
       if (!response.ok) {
         throw new Error(`/api/health responded ${response.status}`)
       }
-      const next = (await response.json()) as HealthReport & { trend?: Trend | null }
+      const next = (await response.json()) as HealthResponse
       setPrevious(report ?? loadHealthSnapshot())
       setReport(next)
       saveHealthSnapshot(next)
@@ -138,30 +164,33 @@ export function HealthPanel() {
 
         {report?.installFound ? (
           <div className="space-y-2">
-            {report.findings.map((finding) => (
-              <div
-                key={finding.id}
-                className={`rounded-xl border px-3 py-2 ${SEVERITY_CLASS[finding.severity]}`}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-sm font-medium">{finding.label}</span>
-                  <span className="font-mono text-sm">
-                    {finding.bytes === null ? "unmeasured" : formatBytes(finding.bytes)}
-                  </span>
+            {report.totalTrend ? <TotalTrendLine total={report.totalTrend} /> : null}
+            {report.findings.map((finding) => {
+              const trend =
+                finding.id === "chat-db" ? report.trend : report.directoryTrends?.[finding.id]
+              return (
+                <div
+                  key={finding.id}
+                  className={`rounded-xl border px-3 py-2 ${SEVERITY_CLASS[finding.severity]}`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-medium">{finding.label}</span>
+                    <span className="font-mono text-sm">
+                      {finding.bytes === null ? "unmeasured" : formatBytes(finding.bytes)}
+                    </span>
+                  </div>
+                  <p className="font-mono text-xs break-all text-muted-foreground">{finding.path}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {SEVERITY_LABEL[finding.severity]}
+                    {finding.detail ? ` · ${finding.detail}` : ""}
+                  </p>
+                  {finding.guidance ? (
+                    <p className="mt-1 text-xs">{finding.guidance}</p>
+                  ) : null}
+                  {finding.bytes !== null && trend ? <TrendLine trend={trend} /> : null}
                 </div>
-                <p className="font-mono text-xs break-all text-muted-foreground">{finding.path}</p>
-                <p className="text-xs text-muted-foreground">
-                  {SEVERITY_LABEL[finding.severity]}
-                  {finding.detail ? ` · ${finding.detail}` : ""}
-                </p>
-                {finding.guidance ? (
-                  <p className="mt-1 text-xs">{finding.guidance}</p>
-                ) : null}
-                {finding.id === "chat-db" && finding.bytes !== null && report.trend ? (
-                  <TrendLine trend={report.trend} />
-                ) : null}
-              </div>
-            ))}
+              )
+            })}
           </div>
         ) : null}
       </CardContent>
