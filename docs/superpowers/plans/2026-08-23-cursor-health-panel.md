@@ -54,7 +54,7 @@
 - Consumes: nothing.
 - Produces: types `Measurement`, `Severity`, `Finding`, `HealthReport`, `Threshold`; constant `THRESHOLDS: Threshold[]`; functions `gradeMeasurements(measurements: Measurement[], at: number): HealthReport`, `totalBytes(report: HealthReport): number`, `formatBytes(bytes: number): string`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `lib/health.test.ts`:
 
@@ -174,14 +174,14 @@ test("formatBytes renders a dash for values it cannot show", () => {
 })
 ```
 
-- [ ] **Step 2: Register the test file, then run it to verify it fails**
+- [x] **Step 2: Register the test file, then run it to verify it fails**
 
 In `package.json`, add `lib/health.test.ts` to the `test` script immediately after `lib/launch-flags.test.ts`.
 
 Run: `npx tsx --test lib/health.test.ts`
 Expected: FAIL with `Cannot find module './health'`. If it fails for any other reason, fix that first — the failure must be the missing module.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Create `lib/health.ts`:
 
@@ -305,7 +305,7 @@ export function formatBytes(bytes: number): string {
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npx tsx --test lib/health.test.ts`
 Expected: PASS, 10 tests.
@@ -313,7 +313,7 @@ Expected: PASS, 10 tests.
 Then run the whole suite to confirm nothing regressed: `npm test`
 Expected: 79 existing + 10 new = 89 pass, 0 fail.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/health.ts lib/health.test.ts package.json
@@ -335,7 +335,7 @@ git commit -m "Add health grading logic with heuristic thresholds"
 
 Note: the implementation uses `path.win32` / `path.posix` explicitly rather than `path.join`, so that macOS and Linux paths can be asserted from a Windows test host and vice versa. Without this the tests only pass on one OS.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `lib/cursor-paths.test.ts`:
 
@@ -384,14 +384,14 @@ test("every path sits under the same root", () => {
 })
 ```
 
-- [ ] **Step 2: Register the test file, then run it to verify it fails**
+- [x] **Step 2: Register the test file, then run it to verify it fails**
 
 In `package.json`, add `lib/cursor-paths.test.ts` to the `test` script after `lib/health.test.ts`.
 
 Run: `npx tsx --test lib/cursor-paths.test.ts`
 Expected: FAIL with `Cannot find module './cursor-paths'`.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Create `lib/cursor-paths.ts`:
 
@@ -441,7 +441,7 @@ export function cursorPaths(
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npx tsx --test lib/cursor-paths.test.ts`
 Expected: PASS, 6 tests.
@@ -449,7 +449,7 @@ Expected: PASS, 6 tests.
 Run: `npm test`
 Expected: 95 pass, 0 fail.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/cursor-paths.ts lib/cursor-paths.test.ts package.json
@@ -471,7 +471,7 @@ git commit -m "Add per-platform Cursor path resolution"
 
 The options parameter exists so tests can drive the caps with small numbers instead of building a 50,000-file fixture.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `lib/measure.test.ts`:
 
@@ -558,14 +558,14 @@ test("countDirectories returns null for a missing path", async () => {
 })
 ```
 
-- [ ] **Step 2: Register the test file, then run it to verify it fails**
+- [x] **Step 2: Register the test file, then run it to verify it fails**
 
 In `package.json`, add `lib/measure.test.ts` to the `test` script after `lib/cursor-paths.test.ts`.
 
 Run: `npx tsx --test lib/measure.test.ts`
 Expected: FAIL with `Cannot find module './measure'`.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Create `lib/measure.ts`:
 
@@ -662,7 +662,7 @@ export async function countDirectories(target: string): Promise<number | null> {
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npx tsx --test lib/measure.test.ts`
 Expected: PASS, 8 tests.
@@ -670,7 +670,7 @@ Expected: PASS, 8 tests.
 Run: `npm test`
 Expected: 103 pass, 0 fail.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/measure.ts lib/measure.test.ts package.json
@@ -690,7 +690,7 @@ git commit -m "Add capped filesystem sizing helpers"
 
 This is the app's first server route. It has no unit test — all its logic lives in the tested `lib/` modules, and it is verified by running it. Do not add filesystem mocking here; if you feel the need to, the logic belongs in `lib/`.
 
-- [ ] **Step 1: Write the implementation**
+- [x] **Step 1: Write the implementation**
 
 Create `app/api/health/route.ts`:
 
@@ -738,7 +738,7 @@ export async function GET() {
 }
 ```
 
-- [ ] **Step 2: Verify it against your real install**
+- [x] **Step 2: Verify it against your real install**
 
 ```bash
 npm run dev
@@ -752,18 +752,18 @@ curl -s http://localhost:43127/api/health
 
 Expected: JSON with five findings, `installFound: true`, and a `chat-db` entry whose `bytes` is a real number. Confirm the `path` values point at your actual Cursor directories.
 
-- [ ] **Step 3: Verify the not-found path renders as unknown**
+- [x] **Step 3: Verify the not-found path renders as unknown**
 
 Temporarily change the `homedir()` argument to a bogus path (e.g. `"/nope"`), re-request, and confirm every finding comes back `severity: "unknown"` with `installFound: false` — **not** `0 B` / `ok`. Then revert the change.
 
 This checks the single most important behaviour in the spec; do not skip it.
 
-- [ ] **Step 4: Confirm the suite and build still pass**
+- [x] **Step 4: Confirm the suite and build still pass**
 
 Run: `npm test` → 103 pass.
 Run: `npm run build` → exit 0. Confirm the route appears in the build output as a dynamic route.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/api/health/route.ts
@@ -784,7 +784,7 @@ git commit -m "Add /api/health route measuring the local Cursor install"
 - Consumes: `HealthReport`, `Finding`, `formatBytes`, `totalBytes` (Task 1); `GET /api/health` (Task 4).
 - Produces: `LaunchFlags`-style export `HealthPanel`; storage functions `loadHealthSnapshot(): HealthReport | null` and `saveHealthSnapshot(report: HealthReport): void`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 In `components/panels.test.tsx`, add the import beside the existing panel imports:
 
@@ -809,12 +809,12 @@ And extend the existing `SessionApp renders the seeded dashboard end to end` tes
   assert.match(html, /Install health/)
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `npx tsx --import ./test/setup-dom.ts --test components/panels.test.tsx`
 Expected: FAIL with `Cannot find module '@/components/health-panel'`.
 
-- [ ] **Step 3: Add the storage pair**
+- [x] **Step 3: Add the storage pair**
 
 In `lib/storage.ts`, add the import beside the other lib imports:
 
@@ -852,7 +852,7 @@ export function saveHealthSnapshot(report: HealthReport): void {
 }
 ```
 
-- [ ] **Step 4: Write the panel**
+- [x] **Step 4: Write the panel**
 
 Create `components/health-panel.tsx`:
 
@@ -988,7 +988,7 @@ export function HealthPanel() {
 }
 ```
 
-- [ ] **Step 5: Wire it into the dashboard**
+- [x] **Step 5: Wire it into the dashboard**
 
 In `components/session-app.tsx`, add beside the other panel imports:
 
@@ -1004,7 +1004,7 @@ And render it immediately after `<LaunchFlags />`:
       <HealthPanel />
 ```
 
-- [ ] **Step 6: Run the tests to verify they pass**
+- [x] **Step 6: Run the tests to verify they pass**
 
 Run: `npx tsx --import ./test/setup-dom.ts --test components/panels.test.tsx`
 Expected: PASS, 6 tests.
@@ -1015,7 +1015,7 @@ Expected: 104 pass, 0 fail.
 Run: `npm run lint` → exit 0.
 Run: `npm run build` → exit 0.
 
-- [ ] **Step 7: Verify in the running app**
+- [x] **Step 7: Verify in the running app**
 
 ```bash
 npm run dev
@@ -1025,7 +1025,7 @@ Open `http://localhost:43127`, scroll to **Install health**, click **Measure thi
 
 **Look at the page, do not just check that it did not error.** A panel that renders zeros for everything means the paths are wrong.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add lib/storage.ts components/health-panel.tsx components/session-app.tsx components/panels.test.tsx
