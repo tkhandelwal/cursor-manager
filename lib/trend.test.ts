@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
 
-import { MIN_SPAN_MS, fromChatDbSamples, summariseTrend } from "./trend"
+import { MIN_SPAN_MS, fromChatDbSamples, summariseTotal, summariseTrend, type Trend } from "./trend"
 
 const HOUR = 3_600_000
 const DAY = 24 * HOUR
@@ -125,4 +125,40 @@ test("fromChatDbSamples leaves malformed rows for the sample guard to drop", () 
 test("fromChatDbSamples passes a non-array through untouched", () => {
   assert.equal(summariseTrend(fromChatDbSamples(null)), null)
   assert.equal(summariseTrend(fromChatDbSamples({ nope: true })), null)
+})
+
+function rate(bytesPerDay: number): Trend {
+  return {
+    first: { at: 0, bytes: 0 },
+    last: { at: DAY, bytes: bytesPerDay },
+    deltaBytes: bytesPerDay,
+    spanMs: DAY,
+    bytesPerDay,
+    sampleCount: 2,
+  }
+}
+
+test("summariseTotal sums the rates of the metrics that have one", () => {
+  const total = summariseTotal([rate(100), rate(250), null, null, rate(50)])
+  assert.ok(total)
+  assert.equal(total.bytesPerDay, 400)
+})
+
+test("summariseTotal reports coverage against every metric it was given", () => {
+  const total = summariseTotal([rate(100), null, null, null, null])
+  assert.ok(total)
+  assert.equal(total.covered, 1)
+  assert.equal(total.total, 5, "coverage is what stops a dropped metric reading as slower growth")
+})
+
+test("summariseTotal is null when no metric qualifies", () => {
+  assert.equal(summariseTotal([null, null, null]), null)
+  assert.equal(summariseTotal([]), null)
+})
+
+test("summariseTotal lets a shrinking metric offset a growing one", () => {
+  const total = summariseTotal([rate(500), rate(-200)])
+  assert.ok(total)
+  assert.equal(total.bytesPerDay, 300)
+  assert.equal(total.covered, 2)
 })
