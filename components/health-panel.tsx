@@ -29,9 +29,19 @@ const SEVERITY_LABEL: Record<Finding["severity"], string> = {
   unknown: "could not be measured",
 }
 
+/**
+ * One decimal below 10, none above. A span rounded coarser than this stops
+ * agreeing with the rate printed beside it — 241.3 MB over a whole "6 hours"
+ * reads as ≈965 MB a day, not the 1.0 GB the same line claims.
+ */
+function precise(value: number) {
+  return value.toFixed(value >= 10 ? 0 : 1)
+}
+
 export function TrendLine({ trend }: { trend: Trend }) {
   const days = trend.spanMs / (24 * 3_600_000)
-  const span = days >= 1 ? `${days.toFixed(days >= 10 ? 0 : 1)} days` : `${Math.round(trend.spanMs / 3_600_000)} hours`
+  const span =
+    days >= 1 ? `${precise(days)} days` : `${precise(trend.spanMs / 3_600_000)} hours`
   const direction = trend.deltaBytes < 0 ? "smaller" : "larger"
   // The window this rate was observed over can be arbitrarily stale (plugin
   // disabled, app not opened in months) — display the end date alongside the
