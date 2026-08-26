@@ -4,6 +4,7 @@ import { dirname, join } from "node:path"
 
 import { NextResponse } from "next/server"
 
+import { readChatDbStats } from "@/lib/chat-db"
 import { cursorPaths, type CursorPaths } from "@/lib/cursor-paths"
 import { recordDirectorySample, seriesFor, type DirectoryStore } from "@/lib/directory-samples"
 import { THRESHOLDS, gradeMeasurements, type Measurement } from "@/lib/health"
@@ -95,11 +96,18 @@ export async function GET() {
   const now = Date.now()
   const report = gradeMeasurements(measurements, now)
 
+  // The cheap tier: two queries, about a tenth of a second, no value bytes.
+  // Null simply means no chat-db section, exactly like an unmeasurable metric.
+  const chatStats = await readChatDbStats(paths.chatDb)
+  const chatDb = chatStats
+    ? { pageCount: chatStats.pageCount, pageSize: chatStats.pageSize, freePages: chatStats.freePages }
+    : undefined
+
   // chat-db is excluded here, not inside recordDirectorySample: the plugin owns
   // that series, and a second copy written on a different cadence would be a
   // second source of truth for the same number.
   const directoryMeasurements = measurements.filter((measurement) => measurement.id !== "chat-db")
-  const store = recordDirectorySample(await readDirectoryStore(home), directoryMeasurements, now)
+  const store = recordDirectorySample(await readDirectoryStore(home), directoryMeasurements, now, chatDb)
   // Writing on every GET (rather than only when a sample is actually due) is
   // fine only because the panel fetches this route on a button click, not on
   // a poll — recordDirectorySample's own throttling keeps that cheap. If this
@@ -113,5 +121,17 @@ export async function GET() {
   }
 
   const totalTrend = summariseTotal([trend, ...Object.values(directoryTrends)])
-  return NextResponse.json({ ...report, trend, directoryTrends, totalTrend })
+  return NextResponse.json({
+    ...report,
+    trend,
+    directoryTrends,
+    totalTrend,
+    chatDb: chatStats
+      ? {
+          bytes: chatStats.pageCount * chatStats.pageSize,
+          freeBytes: chatStats.freePages * chatStats.pageSize,
+          conversations: chatStats.conversations.filter((c) => !c.isSubagent).length,
+        }
+      : null,
+  })
 }

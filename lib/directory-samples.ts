@@ -1,7 +1,12 @@
 import type { Measurement } from "./health"
 import type { Sample } from "./trend"
 
-export type DirectorySample = { at: number; bytes: Record<string, number> }
+export type DirectorySample = {
+  at: number
+  bytes: Record<string, number>
+  /** Chat database geometry, when it could be read. Absent means unknown. */
+  chatDb?: { pageCount: number; pageSize: number; freePages: number }
+}
 export type DirectoryStore = { samples: DirectorySample[] }
 
 /**
@@ -35,6 +40,7 @@ export function recordDirectorySample(
   store: unknown,
   measurements: Measurement[],
   now: number,
+  chatDb?: DirectorySample["chatDb"],
 ): DirectoryStore {
   const samples = samplesOf(store)
   const newest = samples[samples.length - 1]
@@ -55,7 +61,11 @@ export function recordDirectorySample(
     return { samples }
   }
 
-  return { samples: [...samples, { at: now, bytes }].slice(-MAX_SAMPLES) }
+  const sample: DirectorySample = { at: now, bytes }
+  if (chatDb) {
+    sample.chatDb = chatDb
+  }
+  return { samples: [...samples, sample].slice(-MAX_SAMPLES) }
 }
 
 /** One metric's series, skipping the rows where that metric was unknown. */

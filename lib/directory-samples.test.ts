@@ -88,3 +88,17 @@ test("seriesFor returns an empty series for an unknown metric or malformed store
   assert.deepEqual(seriesFor({ samples: [{ at: 0, bytes: { cache: 1 } }] }, "nope"), [])
   assert.deepEqual(seriesFor(null, "cache"), [])
 })
+
+test("a chat-db reading rides along in the sample row", () => {
+  const store = recordDirectorySample(null, TWO, 1_000, {
+    pageCount: 4668163,
+    pageSize: 4096,
+    freePages: 302,
+  })
+  assert.deepEqual(store.samples[0].chatDb, { pageCount: 4668163, pageSize: 4096, freePages: 302 })
+})
+
+test("a row without a chat-db reading omits the key entirely", () => {
+  const store = recordDirectorySample(null, TWO, 1_000)
+  assert.equal("chatDb" in store.samples[0], false, "absent means unknown, the same as a capped directory")
+})
