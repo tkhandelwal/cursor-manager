@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
 
-import type { ChatDbStats, ConversationCount, ConversationSize } from "./chat-db"
+import type { ChatDbStats, ConversationCount } from "./chat-db"
 import { bucketByDormancy, rankCandidates } from "./chat-report"
 
 const DAY = 24 * 3_600_000

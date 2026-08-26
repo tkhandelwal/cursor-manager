@@ -364,6 +364,15 @@ test("DormancyBuckets marks every size as an estimate and states the method", ()
   assert.match(html, /~/, "a sampled size must never be shown as exact")
   assert.match(html, /57,?670/, "the message count is exact and worth showing")
   assert.match(html, /sampled/i, "the panel states how the size was obtained")
+  // Two distinct sizes are rendered for a single-conversation bucket: the
+  // bucket total and the per-conversation line. A count of one `~` proves
+  // only one of the two sites is marked, and would still pass if the other
+  // silently dropped its marker.
+  assert.equal(
+    (html.match(/~/g) ?? []).length,
+    2,
+    "both the bucket total and the per-conversation size must carry their own estimate marker",
+  )
 })
 
 test("DormancyBuckets marks an archived conversation rather than hiding it", () => {
@@ -390,4 +399,8 @@ test("ChatDbHeadline reports true database size, free space, and conversation co
   assert.match(html, /17\.8 GB/, "pageCount x pageSize is the true database size")
   assert.match(html, /1,?627 conversations/)
   assert.match(html, /1\.2 MB/, "reclaimable free pages are worth naming")
+  // Unanchored substring matches above would still pass if the exact size
+  // were rendered as "~17.8 GB" — the opposite honesty failure from the
+  // sampled sizes: this number is exact and must never read as an estimate.
+  assert.doesNotMatch(html, /[~≈]/, "exact database size must not read as an estimate")
 })
