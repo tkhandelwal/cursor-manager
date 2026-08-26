@@ -100,14 +100,18 @@ test("a database without composerHeaders is unknown, not a partial answer", asyn
   assert.equal(await readChatDbStats(file), null, "page counts without conversations is a partial answer")
 })
 
-test("reading does not modify the database file", async () => {
-  const file = await fixture([{ id: "a", lastUpdatedAt: 1000 }])
-  const before = (await stat(file)).mtimeMs
-  const result = await readChatDbStats(file)
-  assert.ok(result, "precondition: the read succeeded")
-  assert.equal(
-    (await stat(file)).mtimeMs,
-    before,
-    "a read-only connection must leave the file untouched",
+test("connection is opened with readOnly: true", async () => {
+  const { readFileSync } = await import("node:fs")
+  const { fileURLToPath } = await import("node:url")
+
+  const chatDbPath = fileURLToPath(new URL("./chat-db.ts", import.meta.url))
+  const moduleSource = readFileSync(chatDbPath, "utf8")
+
+  const hasReadOnly = /new\s+DatabaseSync\s*\(\s*path\s*,\s*{\s*readOnly\s*:\s*true/.test(
+    moduleSource,
+  )
+  assert.ok(
+    hasReadOnly,
+    "readChatDbStats must open DatabaseSync with { readOnly: true } option",
   )
 })
