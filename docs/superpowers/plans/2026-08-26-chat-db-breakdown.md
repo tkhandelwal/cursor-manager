@@ -2,13 +2,49 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Show what is inside the Cursor chat database — which conversations are consuming it, ranked by how long they have been untouched — and prove that a cleanup worked on the cleanup's own timescale.
+**Goal:** Show what is inside the Cursor chat database — which conversations are consuming it, ranked by size and grouped by how long they have been untouched — and prove that a cleanup worked on the cleanup's own timescale.
 
 **Architecture:** A read-only SQLite reader (`lib/chat-db.ts`, the I/O half, mirroring `lib/measure.ts`) feeds a pure bucketing module (`lib/chat-report.ts`, mirroring `lib/health.ts`). Two tiers: a 0.1s query pair rides every measurement and is recorded into the existing sample store so verification tolerates lag; a ~12s ranking sits behind its own route and button. Nothing is ever written to `state.vscdb`.
 
 **Tech Stack:** Next.js 16 (App Router route handlers), React 19, TypeScript, `node:sqlite` (built into Node 22+, no new dependency), `node:test` through `tsx`, `renderToStaticMarkup` for component tests.
 
 **Spec:** `docs/superpowers/specs/2026-08-26-chat-db-breakdown-design.md`
+
+## Amendments during execution
+
+This plan is kept as written, as the record of what was planned. Three of its
+decisions were withdrawn under measurement while executing it. **Where a code
+listing below disagrees with the shipped code, the shipped code is correct and
+the spec describes it**; these are the differences worth knowing about.
+
+- **Ranking is by size, not by idleness.** The listings in Task 3 rank on
+  `lastUpdatedAt` and `rankCandidates` takes only `stats`. Against the real
+  database that returned twenty conversations holding zero messages — the most
+  idle rows in `composerHeaders` are the empty ones. Shipped:
+  `rankCandidates(stats, counts)` sorts by exact message count descending, and
+  dormancy became the grouping applied afterward rather than the selection.
+  *Cost if wrong: the feature names the wrong conversations, which is the
+  entire feature.*
+
+- **Sampling is key-ordered `LIMIT`, not strided.** Task 2's
+  `ROW_NUMBER() OVER (ORDER BY key)` reads the `value` of every row in order to
+  number it — ~1.4 GB per large conversation — and measured **88 seconds**,
+  about 2.9× the whole analyze budget. A bubble key ends in a random UUID v4,
+  so key order is already uncorrelated with write order and the first
+  `SAMPLE_ROWS` rows are an unbiased sample. *Cost if wrong: a biased size
+  estimate, which is why the equivalence is argued from the key format rather
+  than assumed.*
+
+- **Constants moved to `lib/chat-db-constants.ts`.** The panel needs
+  `RANKED_LIMIT` and `SAMPLE_ROWS` to state its sampling method on screen, and a
+  `"use client"` component that value-imports even one number from
+  `lib/chat-db.ts` drags `node:sqlite` into the browser bundle, which Turbopack
+  refuses to build. *Cost if wrong: `npm run build` fails while `npm test`
+  stays green — `tsx` does not type-check, and this branch shipped a red build
+  under a green suite twice before it was caught.*
+
+The full rulings, including the ones that did not change the plan, are in
+`.superpowers/sdd/2026-08-26-chat-db-breakdown/progress.md`.
 
 ## Global Constraints
 

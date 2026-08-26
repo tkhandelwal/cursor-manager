@@ -1,7 +1,7 @@
 # Chat database breakdown — design
 
 Date: 2026-08-26
-Status: approved, not yet implemented
+Status: implemented 2026-08-26 (63ab274)
 Follows: `2026-08-25-directory-trends-design.md`
 
 ## Problem
@@ -54,8 +54,8 @@ rides the sample series rather than a single before/after pair.
 ## Goals
 
 1. Say what is inside the chat database, not just how large it is.
-2. Name the conversations worth deleting, ranked by how long they have been
-   untouched, so the user can judge each one.
+2. Name the conversations worth deleting — ranked by size, then grouped by how
+   long they have been untouched — so the user can judge each one.
 3. Show that a cleanup worked, on the cleanup's own timescale rather than the
    panel's.
 
@@ -91,13 +91,20 @@ which already takes about four seconds.
 | Query | Cost | Yields |
 | --- | --- | --- |
 | bubbles grouped by composer | 6.7 s | exact message count per conversation |
-| `SAMPLE_ROWS` (400) sampled values for each of the `RANKED_LIMIT` (20) largest dormant conversations | ~5 s | that conversation's own average message size |
+| `SAMPLE_ROWS` (400) sampled values for each of the `RANKED_LIMIT` (20) largest conversations | ~5 s | that conversation's own average message size |
 
 `RANKED_LIMIT = 20` and `SAMPLE_ROWS = 400` are both constants. Twenty is chosen
 because the investigation found the top ten conversations already held 67% of all
 messages — the tail is long and uniformly small, so ranking further down buys
 precision the user cannot act on. Only these twenty are sampled; the rest are
 counted in their bucket totals by message count alone and carry no size figure.
+
+**Ranking is by size, not by idleness.** The first implementation ranked by
+`lastUpdatedAt` and, against the real database, returned twenty conversations
+holding no messages at all — the most idle rows in `composerHeaders` are empty
+ones. Dormancy is how the results are *grouped*, never how they are *selected*:
+a conversation can be enormous and idle for a year, or enormous and touched this
+morning, and either way it is the one holding the disk space worth naming.
 
 About twelve seconds, behind an "Analyze conversations" button. It is not folded
 into the measure action: quadrupling a four-second wait for a report the user
@@ -121,12 +128,30 @@ means are the honest version, and cost about five seconds.
 investigation sampled with `LIMIT 20000` and no `ORDER BY`, which returns the
 *oldest* rows by rowid, and the resulting figure was wrong by roughly 4.6×.
 
-Sampling is therefore strided across each conversation's rows: take every
-`floor(messages / SAMPLE_ROWS)`th row, so the sample spans the conversation's
-whole life rather than its opening. A conversation with fewer than
-`SAMPLE_ROWS` messages is measured in full, and its size is exact rather than
-estimated — the panel still renders it with `~` for consistency, because the
-user should not have to reason about which rows earned a tilde.
+Sampling is therefore `ORDER BY key LIMIT SAMPLE_ROWS` over an explicit key
+range, which is already unbiased and needs no striding. A bubble key is
+`bubbleId:<composerUuid>:<bubbleUuid>`, and the trailing segment is a **random
+UUID v4** — so key order within a conversation is random order, uncorrelated
+with when the message was written. The first 400 rows in key order are a
+uniform sample of the conversation's whole life.
+
+Striding was the original design and was withdrawn under measurement. It needed
+`ROW_NUMBER() OVER (ORDER BY key)`, which reads the `value` of *every* row to
+number it — about 1.4 GB per large conversation — and took **88 seconds**
+against the real database, roughly 2.9× the whole analyze budget. Key-ordered
+`LIMIT` reads 400 values and stops.
+
+A conversation with fewer than `SAMPLE_ROWS` messages is measured in full, and
+its size is exact rather than estimated — the panel still renders it with `~`
+for consistency, because the user should not have to reason about which rows
+earned a tilde.
+
+**Byte length, not character length.** `length()` returns *characters* for a
+TEXT value and bytes only for a genuine BLOB. The `value` column is declared
+BLOB, but SQLite's type affinity does not convert what is stored, and every
+sampled bubble in the real database comes back as TEXT — 450 of 5,000 sampled
+values differ from their octet length, understating by up to 1.05×. The query
+therefore measures `length(CAST(value AS BLOB))`.
 
 Exact sizes are a non-goal: `SUM(length(value))` over the table is the query
 that ran for more than ten minutes and timed out twice during investigation.
@@ -172,9 +197,11 @@ export type ChatDbStats = {
   conversations: { id: string; lastUpdatedAt: number; isArchived: boolean; isSubagent: boolean }[]
 }
 
+export type ConversationCount = { id: string; messages: number }
 export type ConversationSize = { id: string; messages: number; sampledMeanBytes: number }
 
 export async function readChatDbStats(path: string): Promise<ChatDbStats | null>
+export async function readConversationCounts(path: string): Promise<ConversationCount[] | null>
 export async function readConversationSizes(path: string, ids: string[]): Promise<ConversationSize[] | null>
 ```
 
@@ -196,6 +223,21 @@ the other:
 A cap is exceeded only when something is wrong; the normal path is nowhere near
 either number.
 
+Two limits on what these caps can do, stated because a budget that silently
+fails to bound is worse than no budget. `node:sqlite` is synchronous and offers
+no interrupt, and `GROUP BY` computes fully before yielding a first row, so the
+budget is checked **between** queries, not within one — a single pathological
+query can still overrun. And `ANALYZE_CAP_MS` bounds **each reader**, not the
+request: `readConversationCounts` and `readConversationSizes` each start their
+own timer, so one `/api/chat-db/analyze` call can take up to roughly twice it.
+
+The constants live in `lib/chat-db-constants.ts`, a module with no imports of
+any kind, because the panel needs `RANKED_LIMIT` and `SAMPLE_ROWS` to state its
+own method on screen. A `"use client"` component that value-imports even a
+single number from `lib/chat-db.ts` pulls that module's whole graph —
+`node:sqlite` included — into the browser bundle, and Turbopack fails the build
+outright rather than chunking a Node built-in.
+
 ### `lib/chat-report.ts` — the pure half
 
 No clock, no filesystem, no database. Takes stats plus a `now` and returns the
@@ -209,8 +251,12 @@ export type DormancyBucket = {
   totalEstimatedBytes: number
 }
 
+/** The RANKED_LIMIT largest non-subagent conversations, by exact message count. */
+export function rankCandidates(stats: ChatDbStats, counts: ConversationCount[]): string[]
+
 export function bucketByDormancy(
   stats: ChatDbStats,
+  counts: ConversationCount[],
   sizes: ConversationSize[],
   now: number,
 ): DormancyBucket[]
