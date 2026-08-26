@@ -48,7 +48,7 @@ Create `lib/chat-db.test.ts`:
 
 ```ts
 import assert from "node:assert/strict"
-import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import { mkdtemp, rm, stat, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { DatabaseSync } from "node:sqlite"
@@ -149,14 +149,16 @@ test("a database without composerHeaders is unknown, not a partial answer", asyn
   assert.equal(await readChatDbStats(file), null, "page counts without conversations is a partial answer")
 })
 
-test("the connection is read-only", async () => {
+test("reading does not modify the database file", async () => {
   const file = await fixture([{ id: "a", lastUpdatedAt: 1000 }])
-  await readChatDbStats(file)
-  // Reading must not have created a WAL or modified anything; re-reading gives
-  // the identical answer, which a mutation would break.
-  const first = await readChatDbStats(file)
-  const second = await readChatDbStats(file)
-  assert.deepEqual(first, second)
+  const before = (await stat(file)).mtimeMs
+  const result = await readChatDbStats(file)
+  assert.ok(result, "precondition: the read succeeded")
+  assert.equal(
+    (await stat(file)).mtimeMs,
+    before,
+    "a read-only connection must leave the file untouched",
+  )
 })
 ```
 
@@ -280,11 +282,12 @@ git commit -m "Read chat database geometry and conversation metadata"
 
 - [ ] **Step 1: Write the failing tests**
 
-Append to `lib/chat-db.test.ts`:
+Append to `lib/chat-db.test.ts`, and **extend the file's existing
+`from "./chat-db"` import line** to `import { SAMPLE_ROWS, readChatDbStats, readConversationSizes } from "./chat-db"`
+rather than adding a second import statement — `no-duplicate-imports` would
+flag it at Task 6's lint step.
 
 ```ts
-import { SAMPLE_ROWS, readConversationSizes } from "./chat-db"
-
 test("counts messages exactly and averages their size", async () => {
   const file = await fixture(
     [{ id: "a", lastUpdatedAt: 1000 }],
@@ -850,15 +853,18 @@ Run: `curl -s -o /dev/null -w "%{http_code} %{time_total}s\n" http://localhost:4
 
 Expected: `200` in about four to five seconds — the cheap tier adds about a tenth of a second, not twelve. If this takes as long as the analyze route, the expensive queries have leaked into the wrong tier.
 
-- [ ] **Step 5: Verify a missing database does not break either route**
+- [ ] **Step 5: Stop the dev server**
 
-```bash
-curl -s http://localhost:43127/api/chat-db/analyze
-```
+The missing-database path needs no manual check here: Tasks 1 and 2 both assert
+that `readChatDbStats` and `readConversationSizes` return `null` for a
+nonexistent file, and this route's only response to `null` is the two
+`return NextResponse.json({ buckets: null })` lines you just wrote.
 
-with `paths.chatDb` temporarily pointed at a nonexistent file (edit `lib/cursor-paths.ts` locally, check the response, then revert the edit).
+Do **not** edit `lib/cursor-paths.ts` to fake a missing database. An uncommitted
+edit to shared source is easy to leave behind, and it would buy no coverage the
+unit tests do not already provide.
 
-Expected: `{"buckets":null}` and HTTP 200. Stop the dev server when done.
+Stop the dev server.
 
 - [ ] **Step 6: Run the suite and build**
 
@@ -889,10 +895,14 @@ git commit -m "Serve the conversation ranking from its own route"
 
 - [ ] **Step 1: Write the failing test**
 
-Append to `components/panels.test.tsx`:
+Append to `components/panels.test.tsx`. **Extend the file's existing
+`@/components/health-panel` import line** to also pull in `DormancyBuckets` and
+`ChatDbHeadline` — do not add a second import statement, because
+`no-duplicate-imports` would fail the lint check at Step 5.
 
-```ts
-import { DormancyBuckets } from "@/components/health-panel"
+```tsx
+// the existing import line becomes:
+import { ChatDbHeadline, DormancyBuckets, HealthPanel, TotalTrendLine, TrendLine } from "@/components/health-panel"
 import type { DormancyBucket } from "@/lib/chat-report"
 
 const BUCKETS: DormancyBucket[] = [
@@ -936,7 +946,20 @@ test("HealthPanel shows no conversation breakdown before analysis", () => {
   const html = renderToStaticMarkup(<HealthPanel />)
   assert.doesNotMatch(html, /Untouched/, "a breakdown must not appear before it has been fetched")
 })
+
+test("ChatDbHeadline reports true database size, free space, and conversation count", () => {
+  const html = renderToStaticMarkup(
+    <ChatDbHeadline chatDb={{ bytes: 19_120_795_648, freeBytes: 1_236_992, conversations: 1627 }} />,
+  )
+  assert.match(html, /17\.8 GB/, "pageCount x pageSize is the true database size")
+  assert.match(html, /1,?627 conversations/)
+  assert.match(html, /1\.2 MB/, "reclaimable free pages are worth naming")
+})
 ```
+
+The headline exists because the cheap tier already produces these three numbers
+on every measurement; without it, the `chatDb` field the route returns is data
+nobody reads.
 
 - [ ] **Step 2: Run it to verify it fails**
 
@@ -979,6 +1002,27 @@ export function DormancyBuckets({ buckets }: { buckets: DormancyBucket[] }) {
 }
 ```
 
+Add the headline component beside it:
+
+```tsx
+export function ChatDbHeadline({
+  chatDb,
+}: {
+  chatDb: { bytes: number; freeBytes: number; conversations: number }
+}) {
+  return (
+    <p className="text-xs text-muted-foreground">
+      Chat database: {formatBytes(chatDb.bytes)} · {chatDb.conversations.toLocaleString()}{" "}
+      conversations · {formatBytes(chatDb.freeBytes)} reclaimable
+    </p>
+  )
+}
+```
+
+`bytes` is `pageCount × pageSize` — the true database size, which is not the
+file size on disk, because the file also carries a WAL that folds in only at
+checkpoint.
+
 Extend the imports at the top of the file:
 
 ```ts
@@ -1017,13 +1061,14 @@ Inside the `report?.installFound` block, below the findings list, render the act
             <Button variant="outline" size="sm" onClick={analyze} disabled={analyzing}>
               {analyzing ? "Analyzing conversations…" : "Analyze conversations"}
             </Button>
+            {report.chatDb ? <ChatDbHeadline chatDb={report.chatDb} /> : null}
             {buckets ? <DormancyBuckets buckets={buckets} /> : null}
 ```
 
 - [ ] **Step 5: Run the tests, lint, and build**
 
 Run: `npm test`
-Expected: PASS, 202 tests.
+Expected: PASS, 203 tests.
 
 Run: `npm run lint`
 Expected: clean.
@@ -1058,6 +1103,6 @@ git commit -m "Show which conversations are worth deleting, and how stale they a
 
 **Type consistency.** `ChatDbStats` and `ConversationSize` are defined in Task 1-2 and consumed with identical field names in Tasks 3-5. `DormancyBucket`'s four fields are identical in Task 3's definition, Task 5's response, and Task 6's component and fixtures. `recordDirectorySample`'s fourth parameter type matches `DirectorySample["chatDb"]` exactly. `RANKED_LIMIT` is used in Task 3 and asserted as 20 in its test.
 
-**Test count arithmetic.** 175 baseline → 182 (Task 1, +7) → 188 (Task 2, +6) → 196 (Task 3, +8) → 198 (Task 4, +2) → 198 (Task 5, +0 by design) → 202 (Task 6, +4).
+**Test count arithmetic.** 175 baseline → 182 (Task 1, +7) → 188 (Task 2, +6) → 196 (Task 3, +8) → 198 (Task 4, +2) → 198 (Task 5, +0 by design) → 203 (Task 6, +5).
 
 **Known weaknesses.** Two, both stated rather than hidden. Task 5 has no automated test, so the tier separation rests on Step 4's timing check — the one that catches expensive queries leaking into the measurement path. And the time caps cannot interrupt a single running query, only skip the next one; Task 1's implementation comment says so plainly instead of implying a guarantee the code cannot make.
