@@ -8,9 +8,10 @@ import { CursorignoreGenerator } from "@/components/cursorignore-generator"
 import { LaunchFlags } from "@/components/launch-flags"
 import { ServiceWorkerRegistrar } from "@/components/service-worker"
 import { ExportDialog } from "@/components/export-dialog"
-import { HealthPanel, TotalTrendLine, TrendLine } from "@/components/health-panel"
+import { ChatDbHeadline, DormancyBuckets, HealthPanel, TotalTrendLine, TrendLine } from "@/components/health-panel"
 import { SessionApp } from "@/components/session-app"
 import type { Trend } from "@/lib/trend"
+import type { DormancyBucket } from "@/lib/chat-report"
 
 afterEach(() => {
   cleanup()
@@ -338,4 +339,55 @@ test("TotalTrendLine does not claim a total size it cannot compute honestly", ()
     html,
     `<p class="text-xs text-muted-foreground">Whole install: ≈1000 B larger per day · across 2 of 5 metrics · through ${new Date(through).toLocaleDateString()}</p>`,
   )
+})
+
+const BUCKETS: DormancyBucket[] = [
+  {
+    label: "Untouched 3+ weeks",
+    minDaysIdle: 21,
+    totalEstimatedBytes: 1_000_000_000,
+    conversations: [
+      {
+        id: "a",
+        messages: 57670,
+        estimatedBytes: 1_000_000_000,
+        lastUpdatedAt: 1_786_000_000_000,
+        isArchived: false,
+      },
+    ],
+  },
+]
+
+test("DormancyBuckets marks every size as an estimate and states the method", () => {
+  const html = renderToStaticMarkup(<DormancyBuckets buckets={BUCKETS} />)
+  assert.match(html, /Untouched 3\+ weeks/)
+  assert.match(html, /~/, "a sampled size must never be shown as exact")
+  assert.match(html, /57,?670/, "the message count is exact and worth showing")
+  assert.match(html, /sampled/i, "the panel states how the size was obtained")
+})
+
+test("DormancyBuckets marks an archived conversation rather than hiding it", () => {
+  const archived = [
+    { ...BUCKETS[0], conversations: [{ ...BUCKETS[0].conversations[0], isArchived: true }] },
+  ]
+  const html = renderToStaticMarkup(<DormancyBuckets buckets={archived} />)
+  assert.match(html, /archived/i)
+})
+
+test("DormancyBuckets renders nothing for an empty list", () => {
+  assert.equal(renderToStaticMarkup(<DormancyBuckets buckets={[]} />), "")
+})
+
+test("HealthPanel shows no conversation breakdown before analysis", () => {
+  const html = renderToStaticMarkup(<HealthPanel />)
+  assert.doesNotMatch(html, /Untouched/, "a breakdown must not appear before it has been fetched")
+})
+
+test("ChatDbHeadline reports true database size, free space, and conversation count", () => {
+  const html = renderToStaticMarkup(
+    <ChatDbHeadline chatDb={{ bytes: 19_120_795_648, freeBytes: 1_236_992, conversations: 1627 }} />,
+  )
+  assert.match(html, /17\.8 GB/, "pageCount x pageSize is the true database size")
+  assert.match(html, /1,?627 conversations/)
+  assert.match(html, /1\.2 MB/, "reclaimable free pages are worth naming")
 })

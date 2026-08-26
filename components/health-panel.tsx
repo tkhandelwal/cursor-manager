@@ -14,6 +14,7 @@ import {
 import { loadHealthSnapshot, saveHealthSnapshot } from "@/lib/storage"
 import { comparableDelta, formatBytes, type Finding, type HealthReport } from "@/lib/health"
 import type { Trend, TotalTrend } from "@/lib/trend"
+import type { DormancyBucket } from "@/lib/chat-report"
 
 const SEVERITY_CLASS: Record<Finding["severity"], string> = {
   ok: "border-border",
@@ -75,10 +76,54 @@ export function TotalTrendLine({ total }: { total: TotalTrend }) {
   )
 }
 
+export function DormancyBuckets({ buckets }: { buckets: DormancyBucket[] }) {
+  if (buckets.length === 0) {
+    return null
+  }
+  return (
+    <div className="space-y-3">
+      {buckets.map((bucket) => (
+        <div key={bucket.label}>
+          <p className="text-xs font-medium">
+            {bucket.label} — {bucket.conversations.length} chat
+            {bucket.conversations.length === 1 ? "" : "s"}, ~
+            {formatBytes(bucket.totalEstimatedBytes)}
+          </p>
+          {bucket.conversations.map((conversation) => (
+            <p key={conversation.id} className="text-xs text-muted-foreground">
+              ~{formatBytes(conversation.estimatedBytes)} · {conversation.messages.toLocaleString()} msgs ·{" "}
+              {new Date(conversation.lastUpdatedAt).toLocaleDateString()}
+              {conversation.isArchived ? " · archived" : ""}
+            </p>
+          ))}
+        </div>
+      ))}
+      <p className="text-xs text-muted-foreground">
+        Sizes sampled from up to 400 messages per conversation — actual may differ. Delete
+        conversations in Cursor; this panel never modifies the database.
+      </p>
+    </div>
+  )
+}
+
+export function ChatDbHeadline({
+  chatDb,
+}: {
+  chatDb: { bytes: number; freeBytes: number; conversations: number }
+}) {
+  return (
+    <p className="text-xs text-muted-foreground">
+      Chat database: {formatBytes(chatDb.bytes)} · {chatDb.conversations.toLocaleString()}{" "}
+      conversations · {formatBytes(chatDb.freeBytes)} reclaimable
+    </p>
+  )
+}
+
 type HealthResponse = HealthReport & {
   trend?: Trend | null
   directoryTrends?: Record<string, Trend | null>
   totalTrend?: TotalTrend | null
+  chatDb?: { bytes: number; freeBytes: number; conversations: number } | null
 }
 
 export function HealthPanel() {
@@ -86,6 +131,8 @@ export function HealthPanel() {
   const [previous, setPrevious] = useState<HealthReport | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [buckets, setBuckets] = useState<DormancyBucket[] | null>(null)
+  const [analyzing, setAnalyzing] = useState(false)
 
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- restore localStorage after mount */
@@ -111,6 +158,19 @@ export function HealthPanel() {
       setLoading(false)
     }
   }, [report])
+
+  const analyze = useCallback(async () => {
+    setAnalyzing(true)
+    try {
+      const response = await fetch("/api/chat-db/analyze")
+      const data = (await response.json()) as { buckets: DormancyBucket[] | null }
+      setBuckets(data.buckets)
+    } catch {
+      setBuckets(null)
+    } finally {
+      setAnalyzing(false)
+    }
+  }, [])
 
   const delta = report && previous ? comparableDelta(report, previous) : null
 
@@ -191,6 +251,11 @@ export function HealthPanel() {
                 </div>
               )
             })}
+            <Button variant="outline" size="sm" onClick={analyze} disabled={analyzing}>
+              {analyzing ? "Analyzing conversations…" : "Analyze conversations"}
+            </Button>
+            {report.chatDb ? <ChatDbHeadline chatDb={report.chatDb} /> : null}
+            {buckets ? <DormancyBuckets buckets={buckets} /> : null}
           </div>
         ) : null}
       </CardContent>
