@@ -28,7 +28,11 @@ export const ANALYZE_CAP_MS = 30_000
 
 /** Conversations ranked and sampled. The tail is long and uniformly small. */
 export const RANKED_LIMIT = 20
-/** Messages sampled per ranked conversation, strided across its whole life. */
+/**
+ * Messages sampled per ranked conversation, taken as the first SAMPLE_ROWS
+ * rows in key order. See `readConversationSizes` for why key order is
+ * already an unbiased sample and needs no striding.
+ */
 export const SAMPLE_ROWS = 400
 
 function scalar(db: DatabaseSync, sql: string): number {
@@ -128,10 +132,34 @@ export type ConversationSize = {
 /**
  * Exact message counts, plus each conversation's OWN mean message size.
  *
- * The sample is strided — every nth row across the conversation's whole life —
- * not the first N. Sampling in insertion order returns the oldest rows and
- * produced an estimate wrong by roughly 4.6x during investigation. A
- * conversation with fewer rows than SAMPLE_ROWS is measured in full.
+ * Sampled with a plain `LIMIT` over key-ordered rows, not a stride. This is
+ * unbiased ONLY because of a specific fact about the key shape: a bubble key
+ * is `bubbleId:<composerId>:<bubbleId>`, and that trailing segment is a
+ * random UUID v4 — unrelated to when the message was written or how big it
+ * is. Key order is therefore already a uniform random sample of the
+ * conversation's content; ordering by key and taking the first SAMPLE_ROWS
+ * needs no striding to defeat insertion-order bias, because there is none to
+ * defeat.
+ *
+ * Do NOT "simplify" this back into a stride over `ROW_NUMBER()`: that reads
+ * the `value` of every row of the conversation to produce the sample (cost
+ * O(all rows), not O(sample)) — for a 177,750-message conversation at ~7.9 KB
+ * a message, that is roughly 1.4 GB of blob reads to produce a 400-row
+ * sample, paid once per ranked conversation (measured at ~88s total across
+ * twenty real conversations, ~2.9x ANALYZE_CAP_MS). A plain `LIMIT` over an
+ * index range reads only the rows actually sampled.
+ *
+ * `LIMIT` WITHOUT `ORDER BY` was the original defect this module worked
+ * around (returns rowid/insertion order, wrong by ~4.6x). Ordering by `key`
+ * does not have that problem, because of the random-UUID fact above — the
+ * fix here is `ORDER BY key LIMIT n`, not a bare `LIMIT n`.
+ *
+ * Explicit key-range bounds (`key >= lo AND key < hi`) are used rather than
+ * `LIKE 'bubbleId:<id>:%'`, so the index range is unambiguous — `LIKE`
+ * prefix optimisation depends on collation settings and is not guaranteed.
+ *
+ * A conversation with fewer rows than SAMPLE_ROWS is measured in full: LIMIT
+ * simply returns every row it has.
  */
 export async function readConversationSizes(
   path: string,
@@ -141,11 +169,11 @@ export async function readConversationSizes(
   let db: DatabaseSync | undefined
   try {
     db = new DatabaseSync(path, { readOnly: true })
-    const countOf = db.prepare("SELECT COUNT(*) AS n FROM cursorDiskKV WHERE key LIKE ?")
+    const countOf = db.prepare("SELECT COUNT(*) AS n FROM cursorDiskKV WHERE key >= ? AND key < ?")
     const meanOf = db.prepare(
       "SELECT AVG(length(value)) AS a FROM (" +
-        "SELECT value, ROW_NUMBER() OVER (ORDER BY key) AS rn FROM cursorDiskKV WHERE key LIKE ?" +
-        ") WHERE (rn - 1) % ? = 0",
+        "SELECT value FROM cursorDiskKV WHERE key >= ? AND key < ? ORDER BY key LIMIT ?" +
+        ")",
     )
 
     const sizes: ConversationSize[] = []
@@ -156,14 +184,16 @@ export async function readConversationSizes(
       if (Date.now() - started > ANALYZE_CAP_MS) {
         return null
       }
-      const like = `bubbleId:${id}:%`
-      const messages = Number((countOf.get(like) as { n: number }).n)
+      // ';' is the character immediately after ':' in ASCII/UTF-8, so this
+      // range is exactly the keys prefixed `bubbleId:<id>:`.
+      const lo = `bubbleId:${id}:`
+      const hi = `bubbleId:${id};`
+      const messages = Number((countOf.get(lo, hi) as { n: number }).n)
       if (messages === 0) {
         sizes.push({ id, messages: 0, sampledMeanBytes: 0 })
         continue
       }
-      const stride = Math.max(1, Math.floor(messages / SAMPLE_ROWS))
-      const mean = (meanOf.get(like, stride) as { a: number | null }).a
+      const mean = (meanOf.get(lo, hi, SAMPLE_ROWS) as { a: number | null }).a
       sizes.push({ id, messages, sampledMeanBytes: Math.round(Number(mean ?? 0)) })
     }
     return sizes

@@ -180,13 +180,40 @@ test("a conversation under the sample size is measured in full", async () => {
   assert.equal(sizes[0].sampledMeanBytes, 250, "fewer rows than SAMPLE_ROWS means no estimation at all")
 })
 
-test("the sample strides across the conversation rather than taking its opening", async () => {
-  // Rows are inserted in key order with a size that grows with the index, so a
-  // sample taken from the start alone reports a mean far below the true one.
-  // This is the exact defect that made an early hand estimate wrong by 4.6x.
+/** Deterministic PRNG (mulberry32) so the shuffle below is reproducible. */
+function mulberry32(seed: number): () => number {
+  let state = seed | 0
+  return () => {
+    state = (state + 0x6d2b79f5) | 0
+    let t = state
+    t = Math.imul(t ^ (t >>> 15), t | 1)
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+/** Fisher-Yates over 0..n-1, seeded so the same shuffle comes back every run. */
+function shuffledIndices(n: number, seed: number): number[] {
+  const rand = mulberry32(seed)
+  const arr = Array.from({ length: n }, (_, i) => i)
+  for (let i = n - 1; i > 0; i -= 1) {
+    const j = Math.floor(rand() * (i + 1))
+    ;[arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+  return arr
+}
+
+test("the sample takes the key-ordered head, which is unbiased because keys are random relative to content", async () => {
+  // Real bubble keys end in a random UUID v4 — unrelated to insertion order
+  // or message size. Reproduce that here: value size ramps with INSERTION
+  // order (rowid), but each row's KEY position is an independent shuffle of
+  // insertion order, exactly like a random UUID would be. A sampler that
+  // reads by key order (the fix) should land near the true mean; a sampler
+  // that reads by rowid/insertion order (the defect this replaced) would not
+  // — the first SAMPLE_ROWS inserted are the SMALLEST SAMPLE_ROWS values.
   const dir = await mkdtemp(join(tmpdir(), "cursor-manager-chatdb-"))
   roots.push(dir)
-  const file = join(dir, "strided.vscdb")
+  const file = join(dir, "keyorder.vscdb")
   const db = new DatabaseSync(file)
   db.exec("CREATE TABLE cursorDiskKV (key TEXT PRIMARY KEY, value BLOB)")
   db.exec(
@@ -197,9 +224,12 @@ test("the sample strides across the conversation rather than taking its opening"
   ).run("a", 0, 1000, 0, 0)
   const ins = db.prepare("INSERT INTO cursorDiskKV (key, value) VALUES (?, ?)")
   const total = SAMPLE_ROWS * 4
+  const keyRank = shuffledIndices(total, 0x5eed1)
   for (let i = 0; i < total; i += 1) {
-    // size ramps 1..total bytes; true mean is about total/2
-    ins.run(`bubbleId:a:${String(i).padStart(8, "0")}`, "x".repeat(i + 1))
+    // Inserted (rowid) order i has size i+1: true mean over all rows is
+    // about total/2. keyRank[i] shuffles where this row lands in KEY order,
+    // independent of i, standing in for a random UUID trailer.
+    ins.run(`bubbleId:a:${String(keyRank[i]).padStart(8, "0")}`, "x".repeat(i + 1))
   }
   db.close()
 
@@ -208,11 +238,18 @@ test("the sample strides across the conversation rather than taking its opening"
   const trueMean = (total + 1) / 2
   assert.ok(
     Math.abs(sizes[0].sampledMeanBytes - trueMean) < trueMean * 0.1,
-    `strided sample should land within 10% of ${trueMean}, got ${sizes[0].sampledMeanBytes}`,
+    `key-ordered sample should land within 10% of ${trueMean}, got ${sizes[0].sampledMeanBytes}`,
   )
+
+  // Prove this test would catch the defect it replaced: a sampler reading
+  // insertion (rowid) order instead of key order — i.e. the first SAMPLE_ROWS
+  // rows ever inserted — would report a mean far below the true one, because
+  // size ramps with insertion order here exactly as it did in the fixture
+  // that motivated the original (wrong) striding fix.
+  const rowidOrderMean = (SAMPLE_ROWS + 1) / 2
   assert.ok(
-    sizes[0].sampledMeanBytes > SAMPLE_ROWS,
-    "a sample taken from the opening rows would report a mean below SAMPLE_ROWS",
+    Math.abs(rowidOrderMean - trueMean) > trueMean * 0.1,
+    "sanity check: a rowid-ordered sample must be far enough off to fail the assertion above",
   )
 })
 
