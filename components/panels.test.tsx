@@ -499,6 +499,75 @@ test("An analyze failure is shown as unavailable, distinguishable from never hav
   }
 })
 
+test("A non-ok analyze response is never rendered as a breakdown, whatever its body says", async () => {
+  // A non-ok status is a failure even when its body happens to parse into
+  // something bucket-shaped — a cached or proxied error page, a stale body
+  // served with a 500. Without the response.ok throw the panel would render
+  // that as a real analysis of the user's database, which is worse than
+  // showing nothing: it is a confident wrong answer about what to delete.
+  const restoreFetch = stubFetchRoutes({
+    "/api/chat-db/analyze": () => ({
+      ok: false,
+      status: 500,
+      json: async () => ({
+        buckets: [
+          {
+            label: "Untouched 3+ weeks",
+            minDaysIdle: 21,
+            conversations: [
+              {
+                id: "stale",
+                messages: 10,
+                estimatedBytes: 1_000,
+                lastUpdatedAt: 0,
+                isArchived: false,
+              },
+            ],
+            totalEstimatedBytes: 1_000,
+          },
+        ],
+      }),
+    }),
+    "/api/health": () => ({ ok: true, json: async () => seededReport(2_000) }),
+  })
+  try {
+    render(<HealthPanel />)
+    fireEvent.click(screen.getByRole("button", { name: "Measure this install" }))
+    await screen.findByRole("button", { name: "Analyze conversations" })
+
+    fireEvent.click(screen.getByRole("button", { name: "Analyze conversations" }))
+    await screen.findByText(/unavailable/i)
+
+    assert.equal(
+      screen.queryByText(/Untouched/) === null,
+      true,
+      "a breakdown from a non-ok response must never reach the screen",
+    )
+  } finally {
+    restoreFetch()
+  }
+})
+
+test("A 200 carrying a body with no buckets key is a failure, not an empty success", async () => {
+  // `data.buckets` is `undefined` here, not null. Guarded with `=== null` this
+  // reads as success and renders nothing at all; the panel must not present a
+  // malformed response as a completed analysis that found nothing.
+  const restoreFetch = stubFetchRoutes({
+    "/api/chat-db/analyze": () => ({ ok: true, json: async () => ({}) }),
+    "/api/health": () => ({ ok: true, json: async () => seededReport(2_000) }),
+  })
+  try {
+    render(<HealthPanel />)
+    fireEvent.click(screen.getByRole("button", { name: "Measure this install" }))
+    await screen.findByRole("button", { name: "Analyze conversations" })
+
+    fireEvent.click(screen.getByRole("button", { name: "Analyze conversations" }))
+    await screen.findByText(/unavailable/i)
+  } finally {
+    restoreFetch()
+  }
+})
+
 test("ChatDbHeadline reports true database size, free space, and conversation count", () => {
   const html = renderToStaticMarkup(
     <ChatDbHeadline chatDb={{ bytes: 19_120_795_648, freeBytes: 1_236_992, conversations: 1627 }} />,

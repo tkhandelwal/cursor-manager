@@ -116,7 +116,7 @@ export function ChatDbHeadline({
 }) {
   return (
     <p className="text-xs text-muted-foreground">
-      Pages in use: {formatBytes(chatDb.bytes)} (the file on disk also carries a write-ahead log) ·{" "}
+      Pages in use: {formatBytes(chatDb.bytes)} (excludes the separate write-ahead log file) ·{" "}
       {chatDb.conversations.toLocaleString()} top-level conversations · {formatBytes(chatDb.freeBytes)}{" "}
       reclaimable
     </p>
@@ -178,12 +178,17 @@ export function HealthPanel() {
         throw new Error(`/api/chat-db/analyze responded ${response.status}`)
       }
       const data = (await response.json()) as { buckets: DormancyBucket[] | null }
-      setBuckets(data.buckets)
+      setBuckets(data.buckets ?? null)
       // The route itself fails closed to { buckets: null } rather than a
       // non-ok status (locked database, cap exceeded, corrupt file), so a
       // null result here is just as much a failure as a thrown request —
       // otherwise it renders as indistinguishable from never having clicked.
-      setAnalyzeFailed(data.buckets === null)
+      //
+      // Tested with `!data.buckets`, not `=== null`: a 200 carrying a body
+      // that parses but has no `buckets` key at all yields `undefined`, which
+      // `=== null` reads as success and renders nothing — the exact
+      // indistinguishable-from-never-clicked state this guard exists to stop.
+      setAnalyzeFailed(!data.buckets)
     } catch {
       setBuckets(null)
       setAnalyzeFailed(true)

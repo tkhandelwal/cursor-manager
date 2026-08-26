@@ -175,9 +175,20 @@ verification comes free from machinery that already exists:
 - Retention is unchanged: at most one sample per hour, newest 180.
 
 `pageCount × pageSize` is the true database size, and it is the number
-verification compares over time. It is not the same as the file size on disk,
-which also counts the WAL — a distinction that matters, because the WAL reached
-1.4 GB during investigation and folds into the main file only at checkpoint.
+verification compares over time.
+
+**Neither this number nor the file-size metric counts the write-ahead log.**
+The WAL is a *separate sibling file*, `state.vscdb-wal`; `measurePath` stats
+`state.vscdb` alone and never sees it. This is not a rounding difference. On
+2026-08-26 the database was 19.15 GB and the WAL was **19.23 GB** — larger than
+the database it belongs to — so real disk usage was about 38.4 GB against a
+reported 17.8 GB. The WAL folds into the main file only at checkpoint, and
+until then Cursor's chat history occupies roughly twice what this panel says.
+
+Measuring the WAL is **not in this design's scope** — it is a new metric, not a
+correction to an existing one — but the panel must not imply it is included.
+The headline therefore reads "excludes the separate write-ahead log file"
+rather than claiming the file on disk carries it. See "Known gaps".
 
 ## Architecture
 
@@ -247,7 +258,7 @@ rendered shape:
 export type DormancyBucket = {
   label: string          // "Untouched 3+ weeks"
   minDaysIdle: number
-  conversations: { id: string; messages: number; estimatedBytes: number; lastUpdatedAt: number }[]
+  conversations: { id: string; messages: number; estimatedBytes: number; lastUpdatedAt: number; isArchived: boolean }[]
   totalEstimatedBytes: number
 }
 
@@ -324,3 +335,22 @@ deferred feature.
 **The panel's advice is only as good as Cursor's commands.** If a palette
 command silently does nothing, this feature reports that honestly rather than
 repeating the advice — which is the whole point.
+
+## Known gaps
+
+Recorded because they are measured facts, not suspicions, and because a later
+reader will otherwise rediscover them the expensive way.
+
+- **The write-ahead log is unmeasured.** `state.vscdb-wal` was 19.23 GB on
+  2026-08-26 against a 19.15 GB database. Every size this panel reports for chat
+  history is therefore roughly half of what Cursor actually occupies on disk.
+  Closing this means measuring the `-wal` sibling and deciding how to present
+  two numbers that fold into one at an unpredictable checkpoint.
+- **`sample.chatDb` is recorded but not read.** `recordDirectorySample` writes
+  it and `seriesFor` cannot return it, so goal 3 — showing that a cleanup worked
+  on the cleanup's own timescale — is recorded-but-not-shown. The data is
+  accumulating correctly; only the read path is missing.
+- **"the N largest" overstates on small installs.** `rankCandidates` slices to
+  `min(RANKED_LIMIT, conversations)`, but the headings say "of the 20 largest"
+  unconditionally. Not reachable on a 123-conversation install; visible on a
+  fresh one.
