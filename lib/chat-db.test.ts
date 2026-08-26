@@ -12,7 +12,7 @@ const roots: string[] = []
 /** Build a throwaway database shaped like Cursor's real one. */
 async function fixture(
   conversations: { id: string; lastUpdatedAt: number; isArchived?: boolean; isSubagent?: boolean }[],
-  bubbles: { composerId: string; count: number; bytes?: number }[] = [],
+  bubbles: { composerId: string; count: number; bytes?: number; value?: string }[] = [],
 ): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "cursor-manager-chatdb-"))
   roots.push(dir)
@@ -22,6 +22,11 @@ async function fixture(
   db.exec(
     "CREATE TABLE composerHeaders (composerId TEXT, workspaceId TEXT, createdAt INTEGER, lastUpdatedAt INTEGER, isArchived INTEGER, isSubagent INTEGER, recency INTEGER, checkpointAt INTEGER, value BLOB)",
   )
+  // Batched in one transaction: 1,600 unbatched inserts (the key-order test
+  // below) measured 31,350 ms; the same inserts inside BEGIN/COMMIT measured
+  // 24 ms. Without this, this file alone accounted for ~15s of the suite's
+  // ~21s runtime.
+  db.exec("BEGIN")
   const ins = db.prepare(
     "INSERT INTO composerHeaders (composerId, createdAt, lastUpdatedAt, isArchived, isSubagent) VALUES (?, ?, ?, ?, ?)",
   )
@@ -31,9 +36,10 @@ async function fixture(
   const insB = db.prepare("INSERT INTO cursorDiskKV (key, value) VALUES (?, ?)")
   for (const b of bubbles) {
     for (let i = 0; i < b.count; i += 1) {
-      insB.run(`bubbleId:${b.composerId}:${String(i).padStart(8, "0")}`, "x".repeat(b.bytes ?? 10))
+      insB.run(`bubbleId:${b.composerId}:${String(i).padStart(8, "0")}`, b.value ?? "x".repeat(b.bytes ?? 10))
     }
   }
+  db.exec("COMMIT")
   db.close()
   return file
 }
@@ -225,12 +231,16 @@ test("the sample takes the key-ordered head, which is unbiased because keys are 
   const ins = db.prepare("INSERT INTO cursorDiskKV (key, value) VALUES (?, ?)")
   const total = SAMPLE_ROWS * 4
   const keyRank = shuffledIndices(total, 0x5eed1)
+  // Batched: see the comment on the same pattern in fixture() above — this is
+  // the loop that measured 31,350 ms unbatched.
+  db.exec("BEGIN")
   for (let i = 0; i < total; i += 1) {
     // Inserted (rowid) order i has size i+1: true mean over all rows is
     // about total/2. keyRank[i] shuffles where this row lands in KEY order,
     // independent of i, standing in for a random UUID trailer.
     ins.run(`bubbleId:a:${String(keyRank[i]).padStart(8, "0")}`, "x".repeat(i + 1))
   }
+  db.exec("COMMIT")
   db.close()
 
   const sizes = await readConversationSizes(file, ["a"])
@@ -253,6 +263,36 @@ test("the sample takes the key-ordered head, which is unbiased because keys are 
   )
 })
 
+test("size is measured in bytes, not characters — a multi-byte value is not undercounted", async () => {
+  // SQLite's length() on a TEXT value counts CHARACTERS, not bytes — every
+  // other fixture in this file inserts plain-ASCII "x" repeats, where the
+  // two counts are equal and this file could never have caught a regression
+  // back to length(value) instead of length(CAST(value AS BLOB)). This value
+  // is chosen so the two genuinely differ (accented Latin, an em dash, and
+  // an astral emoji all take more than one byte in UTF-8).
+  const value = "héllo—🌍"
+  const file = await fixture([{ id: "a", lastUpdatedAt: 1000 }], [{ composerId: "a", count: 3, value }])
+
+  // Confirm, against this exact fixture and this exact SQLite build, that
+  // length(value) and length(CAST(value AS BLOB)) actually diverge for this
+  // value — so the assertion below is known to exercise the CAST, not pass
+  // by coincidence.
+  const probe = new DatabaseSync(file, { readOnly: true })
+  const { chars, bytes } = probe
+    .prepare("SELECT length(value) AS chars, length(CAST(value AS BLOB)) AS bytes FROM cursorDiskKV LIMIT 1")
+    .get() as { chars: number; bytes: number }
+  probe.close()
+  assert.notEqual(chars, bytes, "fixture sanity check: this value must differ in char vs byte length")
+
+  const sizes = await readConversationSizes(file, ["a"])
+  assert.ok(sizes)
+  assert.equal(
+    sizes[0].sampledMeanBytes,
+    bytes,
+    "the reported size must be the BYTE length SQLite gives a BLOB, not the CHARACTER length it gives a TEXT value",
+  )
+})
+
 test("a conversation with no messages reports zero, not an error", async () => {
   const file = await fixture([{ id: "a", lastUpdatedAt: 1000 }])
   const sizes = await readConversationSizes(file, ["a"])
@@ -262,6 +302,11 @@ test("a conversation with no messages reports zero, not an error", async () => {
 })
 
 test("only the requested conversations are read", async () => {
+  // messages count differs between a (5) and b (9) on purpose: asserting
+  // only sizes.length and sizes[0].id (both echoes of the input id, not of
+  // what was actually read) cannot tell "b's own 9 rows" apart from "a's 5",
+  // "b's 9 plus a's 5 summed", or any other cross-attribution — only
+  // asserting the message COUNT that was actually read can.
   const file = await fixture(
     [
       { id: "a", lastUpdatedAt: 1000 },
@@ -269,13 +314,37 @@ test("only the requested conversations are read", async () => {
     ],
     [
       { composerId: "a", count: 5, bytes: 10 },
-      { composerId: "b", count: 5, bytes: 10 },
+      { composerId: "b", count: 9, bytes: 10 },
     ],
   )
   const sizes = await readConversationSizes(file, ["b"])
   assert.ok(sizes)
   assert.equal(sizes.length, 1)
   assert.equal(sizes[0].id, "b")
+  assert.equal(sizes[0].messages, 9, "must be b's own count, not a's, and not the two summed")
+})
+
+test("a conversation id that is a prefix of another's is not cross-attributed", async () => {
+  // This is exactly the risk the explicit key-range bounds (key >= lo AND
+  // key < hi) exist to handle, per the comment on readConversationSizes: "a"
+  // is a literal prefix of "ab", so a naive prefix match (e.g. `LIKE
+  // 'bubbleId:' || id || '%'` without the delimiting colon) would pull ab's
+  // rows into a's result too.
+  const file = await fixture(
+    [
+      { id: "a", lastUpdatedAt: 1000 },
+      { id: "ab", lastUpdatedAt: 2000 },
+    ],
+    [
+      { composerId: "a", count: 3, bytes: 10 },
+      { composerId: "ab", count: 40, bytes: 10 },
+    ],
+  )
+  const sizes = await readConversationSizes(file, ["a"])
+  assert.ok(sizes)
+  assert.equal(sizes.length, 1)
+  assert.equal(sizes[0].id, "a")
+  assert.equal(sizes[0].messages, 3, "\"a\"'s count must not include \"ab\"'s 40 rows")
 })
 
 test("a missing database is unknown", async () => {

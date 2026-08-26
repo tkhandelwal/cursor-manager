@@ -69,6 +69,31 @@ test("buckets split at three weeks and one week", () => {
   assert.equal(byLabel["Active this week"].conversations[0].id, "fresh")
 })
 
+test("a conversation exactly 21 days idle falls in the 3+ weeks tier, not 1+ week", () => {
+  // TIERS's minDaysIdle=21 tier is matched with `daysIdle >= 21`. Flipping
+  // that to `>` would misplace exactly this boundary into "Untouched 1+
+  // week" instead, and every other existing test (30, 10, 2 days) is far
+  // enough from the boundary to still pass either way.
+  const buckets = bucketByDormancy(
+    stats([conv("a", 21)]),
+    [count("a", 10)],
+    [{ id: "a", messages: 10, sampledMeanBytes: 10 }],
+    NOW,
+  )
+  assert.equal(buckets[0].label, "Untouched 3+ weeks", "the >= boundary must include exactly 21 days")
+})
+
+test("a conversation exactly 7 days idle falls in the 1+ week tier, not active", () => {
+  // Same boundary risk as above, at TIERS's minDaysIdle=7 tier.
+  const buckets = bucketByDormancy(
+    stats([conv("a", 7)]),
+    [count("a", 10)],
+    [{ id: "a", messages: 10, sampledMeanBytes: 10 }],
+    NOW,
+  )
+  assert.equal(buckets[0].label, "Untouched 1+ week", "the >= boundary must include exactly 7 days")
+})
+
 test("estimated bytes are messages times that conversation's own mean", () => {
   const buckets = bucketByDormancy(
     stats([conv("a", 30)]),
@@ -95,6 +120,15 @@ test("a conversation with no size entry still appears, with no size claimed", ()
   const buckets = bucketByDormancy(stats([conv("a", 30)]), [], [], NOW)
   assert.equal(buckets[0].conversations[0].messages, 0)
   assert.equal(buckets[0].conversations[0].estimatedBytes, 0)
+})
+
+test("a ranked conversation missing from sizes still shows its exact known count, not a false zero", () => {
+  // counts DOES have an entry here (unlike the test above, where it's also
+  // empty) — falling back to 0 in that case would discard a number that was
+  // already known exactly, for no reason but sizes not covering it.
+  const buckets = bucketByDormancy(stats([conv("a", 30)]), [count("a", 500)], [], NOW)
+  assert.equal(buckets[0].conversations[0].messages, 500, "the exact count from `counts` must not be discarded")
+  assert.equal(buckets[0].conversations[0].estimatedBytes, 0, "no sampled size means no estimate, still")
 })
 
 test("the archived flag survives into the rendered shape", () => {

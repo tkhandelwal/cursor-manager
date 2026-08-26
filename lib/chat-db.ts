@@ -1,5 +1,13 @@
 import { DatabaseSync } from "node:sqlite"
 
+import { ANALYZE_CAP_MS, CHEAP_CAP_MS, RANKED_LIMIT, SAMPLE_ROWS } from "./chat-db-constants"
+
+// Re-exported so existing value-imports of these constants from "./chat-db"
+// keep working. A "use client" component must import them from
+// "./chat-db-constants" directly instead — see that file's header comment
+// for why: importing them from here pulls node:sqlite into the module graph.
+export { ANALYZE_CAP_MS, CHEAP_CAP_MS, RANKED_LIMIT, SAMPLE_ROWS }
+
 export type ChatDbConversation = {
   id: string
   lastUpdatedAt: number
@@ -13,33 +21,6 @@ export type ChatDbStats = {
   freePages: number
   conversations: ChatDbConversation[]
 }
-
-/**
- * Budgets, deliberately separate from `lib/measure.ts`'s MAX_MS: they bound
- * different work and one must be free to change without moving the other.
- *
- * Note what these can and cannot do. `node:sqlite` is synchronous and offers no
- * interrupt, and GROUP BY computes fully before yielding a first row, so the
- * budget is checked BETWEEN queries, not within one. A single pathological
- * query can still overrun. This is a real limitation, not a guarantee.
- */
-export const CHEAP_CAP_MS = 2_000
-/**
- * This budget is checked independently inside `readConversationCounts` and
- * `readConversationSizes` — each reader starts its own timer. The two calls
- * made per `/api/chat-db/analyze` request can therefore together take up to
- * roughly 2x this value; the constant bounds each reader, not the request.
- */
-export const ANALYZE_CAP_MS = 30_000
-
-/** Conversations ranked and sampled. The tail is long and uniformly small. */
-export const RANKED_LIMIT = 20
-/**
- * Messages sampled per ranked conversation, taken as the first SAMPLE_ROWS
- * rows in key order. See `readConversationSizes` for why key order is
- * already an unbiased sample and needs no striding.
- */
-export const SAMPLE_ROWS = 400
 
 function scalar(db: DatabaseSync, sql: string): number {
   return Number(Object.values(db.prepare(sql).get() as Record<string, unknown>)[0])

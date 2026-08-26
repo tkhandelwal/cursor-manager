@@ -15,7 +15,7 @@ import { loadHealthSnapshot, saveHealthSnapshot } from "@/lib/storage"
 import { comparableDelta, formatBytes, type Finding, type HealthReport } from "@/lib/health"
 import type { Trend, TotalTrend } from "@/lib/trend"
 import type { DormancyBucket } from "@/lib/chat-report"
-import { RANKED_LIMIT, SAMPLE_ROWS } from "@/lib/chat-db"
+import { RANKED_LIMIT, SAMPLE_ROWS } from "@/lib/chat-db-constants"
 
 const SEVERITY_CLASS: Record<Finding["severity"], string> = {
   ok: "border-border",

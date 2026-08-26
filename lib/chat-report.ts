@@ -1,4 +1,5 @@
-import { RANKED_LIMIT, type ChatDbStats, type ConversationCount, type ConversationSize } from "./chat-db"
+import type { ChatDbStats, ConversationCount, ConversationSize } from "./chat-db"
+import { RANKED_LIMIT } from "./chat-db-constants"
 
 export type RankedConversation = {
   id: string
