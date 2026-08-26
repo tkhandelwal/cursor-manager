@@ -78,3 +78,58 @@ export async function readChatDbStats(path: string): Promise<ChatDbStats | null>
     db?.close()
   }
 }
+
+export type ConversationSize = {
+  id: string
+  messages: number
+  sampledMeanBytes: number
+}
+
+/**
+ * Exact message counts, plus each conversation's OWN mean message size.
+ *
+ * The sample is strided — every nth row across the conversation's whole life —
+ * not the first N. Sampling in insertion order returns the oldest rows and
+ * produced an estimate wrong by roughly 4.6x during investigation. A
+ * conversation with fewer rows than SAMPLE_ROWS is measured in full.
+ */
+export async function readConversationSizes(
+  path: string,
+  ids: string[],
+): Promise<ConversationSize[] | null> {
+  const started = Date.now()
+  let db: DatabaseSync | undefined
+  try {
+    db = new DatabaseSync(path, { readOnly: true })
+    const countOf = db.prepare("SELECT COUNT(*) AS n FROM cursorDiskKV WHERE key LIKE ?")
+    const meanOf = db.prepare(
+      "SELECT AVG(length(value)) AS a FROM (" +
+        "SELECT value, ROW_NUMBER() OVER (ORDER BY key) AS rn FROM cursorDiskKV WHERE key LIKE ?" +
+        ") WHERE (rn - 1) % ? = 0",
+    )
+
+    const sizes: ConversationSize[] = []
+    for (const id of ids) {
+      // Cap is checked BETWEEN conversations, not within a single query: node:sqlite
+      // is synchronous and offers no interrupt, so a single pathological query can
+      // still overrun. See the budgets comment above readChatDbStats.
+      if (Date.now() - started > ANALYZE_CAP_MS) {
+        return null
+      }
+      const like = `bubbleId:${id}:%`
+      const messages = Number((countOf.get(like) as { n: number }).n)
+      if (messages === 0) {
+        sizes.push({ id, messages: 0, sampledMeanBytes: 0 })
+        continue
+      }
+      const stride = Math.max(1, Math.floor(messages / SAMPLE_ROWS))
+      const mean = (meanOf.get(like, stride) as { a: number | null }).a
+      sizes.push({ id, messages, sampledMeanBytes: Math.round(Number(mean ?? 0)) })
+    }
+    return sizes
+  } catch {
+    return null
+  } finally {
+    db?.close()
+  }
+}

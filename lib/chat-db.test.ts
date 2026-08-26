@@ -1,11 +1,11 @@
 import assert from "node:assert/strict"
-import { mkdtemp, rm, stat, writeFile } from "node:fs/promises"
+import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { DatabaseSync } from "node:sqlite"
 import { after, test } from "node:test"
 
-import { readChatDbStats } from "./chat-db"
+import { SAMPLE_ROWS, readChatDbStats, readConversationSizes } from "./chat-db"
 
 const roots: string[] = []
 
@@ -107,11 +107,101 @@ test("connection is opened with readOnly: true", async () => {
   const chatDbPath = fileURLToPath(new URL("./chat-db.ts", import.meta.url))
   const moduleSource = readFileSync(chatDbPath, "utf8")
 
-  const hasReadOnly = /new\s+DatabaseSync\s*\(\s*path\s*,\s*{\s*readOnly\s*:\s*true/.test(
-    moduleSource,
+  const totalOpens = (moduleSource.match(/new\s+DatabaseSync\s*\(/g) ?? []).length
+  const readOnlyOpens = (
+    moduleSource.match(/new\s+DatabaseSync\s*\(\s*path\s*,\s*{\s*readOnly\s*:\s*true/g) ?? []
+  ).length
+  assert.ok(totalOpens > 0, "expected at least one DatabaseSync call in chat-db.ts")
+  assert.equal(
+    readOnlyOpens,
+    totalOpens,
+    "every new DatabaseSync(...) call site must open with { readOnly: true }",
+  )
+})
+
+test("counts messages exactly and averages their size", async () => {
+  const file = await fixture(
+    [{ id: "a", lastUpdatedAt: 1000 }],
+    [{ composerId: "a", count: 50, bytes: 100 }],
+  )
+  const sizes = await readConversationSizes(file, ["a"])
+  assert.ok(sizes)
+  assert.equal(sizes[0].messages, 50, "message count is exact, never sampled")
+  assert.equal(sizes[0].sampledMeanBytes, 100)
+})
+
+test("a conversation under the sample size is measured in full", async () => {
+  const file = await fixture(
+    [{ id: "a", lastUpdatedAt: 1000 }],
+    [{ composerId: "a", count: 10, bytes: 250 }],
+  )
+  const sizes = await readConversationSizes(file, ["a"])
+  assert.ok(sizes)
+  assert.equal(sizes[0].messages, 10)
+  assert.equal(sizes[0].sampledMeanBytes, 250, "fewer rows than SAMPLE_ROWS means no estimation at all")
+})
+
+test("the sample strides across the conversation rather than taking its opening", async () => {
+  // Rows are inserted in key order with a size that grows with the index, so a
+  // sample taken from the start alone reports a mean far below the true one.
+  // This is the exact defect that made an early hand estimate wrong by 4.6x.
+  const dir = await mkdtemp(join(tmpdir(), "cursor-manager-chatdb-"))
+  roots.push(dir)
+  const file = join(dir, "strided.vscdb")
+  const db = new DatabaseSync(file)
+  db.exec("CREATE TABLE cursorDiskKV (key TEXT PRIMARY KEY, value BLOB)")
+  db.exec(
+    "CREATE TABLE composerHeaders (composerId TEXT, workspaceId TEXT, createdAt INTEGER, lastUpdatedAt INTEGER, isArchived INTEGER, isSubagent INTEGER, recency INTEGER, checkpointAt INTEGER, value BLOB)",
+  )
+  db.prepare(
+    "INSERT INTO composerHeaders (composerId, createdAt, lastUpdatedAt, isArchived, isSubagent) VALUES (?, ?, ?, ?, ?)",
+  ).run("a", 0, 1000, 0, 0)
+  const ins = db.prepare("INSERT INTO cursorDiskKV (key, value) VALUES (?, ?)")
+  const total = SAMPLE_ROWS * 4
+  for (let i = 0; i < total; i += 1) {
+    // size ramps 1..total bytes; true mean is about total/2
+    ins.run(`bubbleId:a:${String(i).padStart(8, "0")}`, "x".repeat(i + 1))
+  }
+  db.close()
+
+  const sizes = await readConversationSizes(file, ["a"])
+  assert.ok(sizes)
+  const trueMean = (total + 1) / 2
+  assert.ok(
+    Math.abs(sizes[0].sampledMeanBytes - trueMean) < trueMean * 0.1,
+    `strided sample should land within 10% of ${trueMean}, got ${sizes[0].sampledMeanBytes}`,
   )
   assert.ok(
-    hasReadOnly,
-    "readChatDbStats must open DatabaseSync with { readOnly: true } option",
+    sizes[0].sampledMeanBytes > SAMPLE_ROWS,
+    "a sample taken from the opening rows would report a mean below SAMPLE_ROWS",
   )
+})
+
+test("a conversation with no messages reports zero, not an error", async () => {
+  const file = await fixture([{ id: "a", lastUpdatedAt: 1000 }])
+  const sizes = await readConversationSizes(file, ["a"])
+  assert.ok(sizes)
+  assert.equal(sizes[0].messages, 0)
+  assert.equal(sizes[0].sampledMeanBytes, 0)
+})
+
+test("only the requested conversations are read", async () => {
+  const file = await fixture(
+    [
+      { id: "a", lastUpdatedAt: 1000 },
+      { id: "b", lastUpdatedAt: 2000 },
+    ],
+    [
+      { composerId: "a", count: 5, bytes: 10 },
+      { composerId: "b", count: 5, bytes: 10 },
+    ],
+  )
+  const sizes = await readConversationSizes(file, ["b"])
+  assert.ok(sizes)
+  assert.equal(sizes.length, 1)
+  assert.equal(sizes[0].id, "b")
+})
+
+test("a missing database is unknown", async () => {
+  assert.equal(await readConversationSizes(join(tmpdir(), "nope.vscdb"), ["a"]), null)
 })
