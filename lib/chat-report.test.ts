@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
 
-import type { ChatDbStats, ConversationSize } from "./chat-db"
+import type { ChatDbStats, ConversationCount, ConversationSize } from "./chat-db"
 import { bucketByDormancy, rankCandidates } from "./chat-report"
 
 const DAY = 24 * 3_600_000
@@ -15,21 +15,46 @@ function conv(id: string, daysIdle: number, extra: Partial<ChatDbStats["conversa
   return { id, lastUpdatedAt: NOW - daysIdle * DAY, isArchived: false, isSubagent: false, ...extra }
 }
 
-test("subagent conversations are never ranked", () => {
-  const ids = rankCandidates(stats([conv("a", 30), conv("sub", 30, { isSubagent: true })]))
+function count(id: string, messages: number): ConversationCount {
+  return { id, messages }
+}
+
+test("subagent conversations are never ranked, even when they are the larger one", () => {
+  const ids = rankCandidates(stats([conv("a", 30), conv("sub", 30, { isSubagent: true })]), [
+    count("a", 100),
+    count("sub", 500),
+  ])
   assert.deepEqual(ids, ["a"], "deleting the parent takes its subagents, so listing them double-counts")
 })
 
-test("ranking is capped and ordered by idleness", () => {
+test("ranking is capped and ordered by message count", () => {
   const many = Array.from({ length: 40 }, (_, i) => conv("c" + i, i + 1))
-  const ids = rankCandidates(stats(many))
+  const counts = many.map((c, i) => count(c.id, i + 1))
+  const ids = rankCandidates(stats(many), counts)
   assert.equal(ids.length, 20, "RANKED_LIMIT")
-  assert.equal(ids[0], "c39", "the most idle conversation ranks first")
+  assert.equal(ids[0], "c39", "the largest conversation ranks first")
+})
+
+test("a large recently-used conversation outranks a small, very old one", () => {
+  // This is the exact case that shipped broken: ranking by idleness surfaced
+  // ancient empty stubs while the conversation actually holding the disk
+  // space — touched yesterday — was never even sampled.
+  const ids = rankCandidates(stats([conv("ancient-empty", 400), conv("huge-recent", 1)]), [
+    count("ancient-empty", 2),
+    count("huge-recent", 177_750),
+  ])
+  assert.deepEqual(ids, ["huge-recent", "ancient-empty"], "size ranks above idleness")
+})
+
+test("a conversation absent from counts ranks as zero, not excluded", () => {
+  const ids = rankCandidates(stats([conv("a", 30), conv("b", 5)]), [count("b", 10)])
+  assert.deepEqual(ids, ["b", "a"], "a has no counts entry, so it ranks last, but is still present")
 })
 
 test("buckets split at three weeks and one week", () => {
   const buckets = bucketByDormancy(
     stats([conv("old", 30), conv("mid", 10), conv("fresh", 2)]),
+    [count("old", 100), count("mid", 200), count("fresh", 300)],
     [
       { id: "old", messages: 100, sampledMeanBytes: 1000 },
       { id: "mid", messages: 200, sampledMeanBytes: 1000 },
@@ -47,6 +72,7 @@ test("buckets split at three weeks and one week", () => {
 test("estimated bytes are messages times that conversation's own mean", () => {
   const buckets = bucketByDormancy(
     stats([conv("a", 30)]),
+    [count("a", 1000)],
     [{ id: "a", messages: 1000, sampledMeanBytes: 7896 }],
     NOW,
   )
@@ -57,6 +83,7 @@ test("estimated bytes are messages times that conversation's own mean", () => {
 test("an empty bucket is omitted, not shown empty", () => {
   const buckets = bucketByDormancy(
     stats([conv("a", 30)]),
+    [count("a", 10)],
     [{ id: "a", messages: 10, sampledMeanBytes: 10 }],
     NOW,
   )
@@ -65,7 +92,7 @@ test("an empty bucket is omitted, not shown empty", () => {
 })
 
 test("a conversation with no size entry still appears, with no size claimed", () => {
-  const buckets = bucketByDormancy(stats([conv("a", 30)]), [], NOW)
+  const buckets = bucketByDormancy(stats([conv("a", 30)]), [], [], NOW)
   assert.equal(buckets[0].conversations[0].messages, 0)
   assert.equal(buckets[0].conversations[0].estimatedBytes, 0)
 })
@@ -73,6 +100,7 @@ test("a conversation with no size entry still appears, with no size claimed", ()
 test("the archived flag survives into the rendered shape", () => {
   const buckets = bucketByDormancy(
     stats([conv("a", 30, { isArchived: true })]),
+    [count("a", 10)],
     [{ id: "a", messages: 10, sampledMeanBytes: 10 }],
     NOW,
   )
@@ -82,6 +110,7 @@ test("the archived flag survives into the rendered shape", () => {
 test("a future lastUpdatedAt is treated as active, not as negative idleness", () => {
   const buckets = bucketByDormancy(
     stats([conv("a", -5)]),
+    [count("a", 10)],
     [{ id: "a", messages: 10, sampledMeanBytes: 10 }],
     NOW,
   )

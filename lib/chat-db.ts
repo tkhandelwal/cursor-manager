@@ -79,6 +79,46 @@ export async function readChatDbStats(path: string): Promise<ChatDbStats | null>
   }
 }
 
+export type ConversationCount = { id: string; messages: number }
+
+/**
+ * Exact message counts for every conversation in the database, not just a
+ * candidate set. Ranking by size needs this — the twenty conversations worth
+ * sampling in full cannot be chosen without first knowing everyone's count.
+ *
+ * One GROUP BY over the `bubbleId:<composerId>:<index>` keys, extracting the
+ * composer id between the first and second colon. Same failure contract as
+ * the other readers: null on any missing/corrupt/locked database or an
+ * exhausted budget, never a partial answer.
+ */
+export async function readConversationCounts(path: string): Promise<ConversationCount[] | null> {
+  const started = Date.now()
+  let db: DatabaseSync | undefined
+  try {
+    db = new DatabaseSync(path, { readOnly: true })
+    const rows = db
+      .prepare(
+        "SELECT substr(key, 10, instr(substr(key, 10), ':') - 1) AS id, COUNT(*) AS n " +
+          "FROM cursorDiskKV WHERE key LIKE 'bubbleId:%' GROUP BY id",
+      )
+      .all() as Record<string, unknown>[]
+
+    // GROUP BY computes fully before yielding a first row, so — as with the
+    // other readers — this is checked after the one query, not within it.
+    if (Date.now() - started > ANALYZE_CAP_MS) {
+      return null
+    }
+
+    return rows
+      .filter((row) => typeof row.id === "string" && row.id.length > 0)
+      .map((row) => ({ id: String(row.id), messages: Number(row.n) }))
+  } catch {
+    return null
+  } finally {
+    db?.close()
+  }
+}
+
 export type ConversationSize = {
   id: string
   messages: number

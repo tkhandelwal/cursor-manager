@@ -5,7 +5,7 @@ import { join } from "node:path"
 import { DatabaseSync } from "node:sqlite"
 import { after, test } from "node:test"
 
-import { SAMPLE_ROWS, readChatDbStats, readConversationSizes } from "./chat-db"
+import { SAMPLE_ROWS, readChatDbStats, readConversationCounts, readConversationSizes } from "./chat-db"
 
 const roots: string[] = []
 
@@ -117,6 +117,45 @@ test("connection is opened with readOnly: true", async () => {
     totalOpens,
     "every new DatabaseSync(...) call site must open with { readOnly: true }",
   )
+})
+
+test("readConversationCounts counts every conversation's messages, not just a candidate set", async () => {
+  const file = await fixture(
+    [
+      { id: "a", lastUpdatedAt: 1000 },
+      { id: "b", lastUpdatedAt: 2000 },
+    ],
+    [
+      { composerId: "a", count: 3 },
+      { composerId: "b", count: 177 },
+    ],
+  )
+  const counts = await readConversationCounts(file)
+  assert.ok(counts)
+  const byId = Object.fromEntries(counts.map((c) => [c.id, c.messages]))
+  assert.equal(byId.a, 3)
+  assert.equal(byId.b, 177)
+})
+
+test("readConversationCounts omits a conversation with no bubbles at all", async () => {
+  const file = await fixture(
+    [
+      { id: "a", lastUpdatedAt: 1000 },
+      { id: "empty", lastUpdatedAt: 2000 },
+    ],
+    [{ composerId: "a", count: 5 }],
+  )
+  const counts = await readConversationCounts(file)
+  assert.ok(counts)
+  assert.deepEqual(
+    counts.map((c) => c.id),
+    ["a"],
+    "a conversation with zero bubble rows has nothing to GROUP BY, so it is simply absent",
+  )
+})
+
+test("readConversationCounts on a missing database is unknown, not an error", async () => {
+  assert.equal(await readConversationCounts(join(tmpdir(), "definitely-not-here.vscdb")), null)
 })
 
 test("counts messages exactly and averages their size", async () => {
