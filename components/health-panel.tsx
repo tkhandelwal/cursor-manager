@@ -15,6 +15,7 @@ import { loadHealthSnapshot, saveHealthSnapshot } from "@/lib/storage"
 import { comparableDelta, formatBytes, type Finding, type HealthReport } from "@/lib/health"
 import type { Trend, TotalTrend } from "@/lib/trend"
 import type { DormancyBucket } from "@/lib/chat-report"
+import { RANKED_LIMIT, SAMPLE_ROWS } from "@/lib/chat-db"
 
 const SEVERITY_CLASS: Record<Finding["severity"], string> = {
   ok: "border-border",
@@ -82,11 +83,13 @@ export function DormancyBuckets({ buckets }: { buckets: DormancyBucket[] }) {
   }
   return (
     <div className="space-y-3">
+      <p className="text-xs text-muted-foreground">
+        The {RANKED_LIMIT} largest conversations, grouped by staleness.
+      </p>
       {buckets.map((bucket) => (
         <div key={bucket.label}>
           <p className="text-xs font-medium">
-            {bucket.label} — {bucket.conversations.length} chat
-            {bucket.conversations.length === 1 ? "" : "s"}, ~
+            {bucket.label} — {bucket.conversations.length} of the {RANKED_LIMIT} largest — ~
             {formatBytes(bucket.totalEstimatedBytes)}
           </p>
           {bucket.conversations.map((conversation) => (
@@ -99,7 +102,7 @@ export function DormancyBuckets({ buckets }: { buckets: DormancyBucket[] }) {
         </div>
       ))}
       <p className="text-xs text-muted-foreground">
-        Sizes sampled from up to 400 messages per conversation — actual may differ. Delete
+        Sizes sampled from up to {SAMPLE_ROWS} messages per conversation — actual may differ. Delete
         conversations in Cursor; this panel never modifies the database.
       </p>
     </div>
@@ -113,8 +116,9 @@ export function ChatDbHeadline({
 }) {
   return (
     <p className="text-xs text-muted-foreground">
-      Chat database: {formatBytes(chatDb.bytes)} · {chatDb.conversations.toLocaleString()}{" "}
-      conversations · {formatBytes(chatDb.freeBytes)} reclaimable
+      Pages in use: {formatBytes(chatDb.bytes)} (the file on disk also carries a write-ahead log) ·{" "}
+      {chatDb.conversations.toLocaleString()} top-level conversations · {formatBytes(chatDb.freeBytes)}{" "}
+      reclaimable
     </p>
   )
 }
@@ -133,6 +137,7 @@ export function HealthPanel() {
   const [error, setError] = useState("")
   const [buckets, setBuckets] = useState<DormancyBucket[] | null>(null)
   const [analyzing, setAnalyzing] = useState(false)
+  const [analyzeFailed, setAnalyzeFailed] = useState(false)
 
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- restore localStorage after mount */
@@ -143,6 +148,11 @@ export function HealthPanel() {
   const measure = useCallback(async () => {
     setLoading(true)
     setError("")
+    // A stale breakdown must not survive a re-measure: the conversations it
+    // names may have been deleted in Cursor since it was fetched, and it was
+    // never re-validated against this fresh measurement.
+    setBuckets(null)
+    setAnalyzeFailed(false)
     try {
       const response = await fetch("/api/health")
       if (!response.ok) {
@@ -161,12 +171,22 @@ export function HealthPanel() {
 
   const analyze = useCallback(async () => {
     setAnalyzing(true)
+    setAnalyzeFailed(false)
     try {
       const response = await fetch("/api/chat-db/analyze")
+      if (!response.ok) {
+        throw new Error(`/api/chat-db/analyze responded ${response.status}`)
+      }
       const data = (await response.json()) as { buckets: DormancyBucket[] | null }
       setBuckets(data.buckets)
+      // The route itself fails closed to { buckets: null } rather than a
+      // non-ok status (locked database, cap exceeded, corrupt file), so a
+      // null result here is just as much a failure as a thrown request —
+      // otherwise it renders as indistinguishable from never having clicked.
+      setAnalyzeFailed(data.buckets === null)
     } catch {
       setBuckets(null)
+      setAnalyzeFailed(true)
     } finally {
       setAnalyzing(false)
     }
@@ -255,6 +275,11 @@ export function HealthPanel() {
               {analyzing ? "Analyzing conversations…" : "Analyze conversations"}
             </Button>
             {report.chatDb ? <ChatDbHeadline chatDb={report.chatDb} /> : null}
+            {analyzeFailed ? (
+              <p className="text-xs text-destructive">
+                Conversation analysis unavailable — the database may be locked by Cursor.
+              </p>
+            ) : null}
             {buckets ? <DormancyBuckets buckets={buckets} /> : null}
           </div>
         ) : null}

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { afterEach, test } from "node:test"
 import { renderToStaticMarkup } from "react-dom/server"
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 
 import { CursorTweaks } from "@/components/cursor-tweaks"
 import { CursorignoreGenerator } from "@/components/cursorignore-generator"
@@ -375,6 +375,27 @@ test("DormancyBuckets marks every size as an estimate and states the method", ()
   )
 })
 
+test("DormancyBuckets states its scope is the ranked top 20, not a census of the tier", () => {
+  // The counts and totals rendered here cover only the ranked candidate set
+  // (RANKED_LIMIT = 20 conversations), never every conversation in a tier —
+  // lib/chat-report.ts's rankCandidates drops everything outside that set
+  // before bucketByDormancy ever sees it. A bucket line reading as "9 chats,
+  // ~4.1 GB" states a false total for a 60-chat tier; it must read as a
+  // fraction of the ranked set instead.
+  const html = renderToStaticMarkup(<DormancyBuckets buckets={BUCKETS} />)
+  assert.match(html, /20 largest/, "the panel must name its scope: the top RANKED_LIMIT, not every chat")
+  assert.match(
+    html,
+    /1 of the 20 largest/,
+    "the bucket line must read as a fraction of the ranked set, not a standalone count",
+  )
+  assert.doesNotMatch(
+    html,
+    /\d+ chats?,/,
+    "the old '<n> chats, ~<size>' wording reads as a census of the whole tier and must be gone",
+  )
+})
+
 test("DormancyBuckets marks an archived conversation rather than hiding it", () => {
   const archived = [
     { ...BUCKETS[0], conversations: [{ ...BUCKETS[0].conversations[0], isArchived: true }] },
@@ -390,6 +411,92 @@ test("DormancyBuckets renders nothing for an empty list", () => {
 test("HealthPanel shows no conversation breakdown before analysis", () => {
   const html = renderToStaticMarkup(<HealthPanel />)
   assert.doesNotMatch(html, /Untouched/, "a breakdown must not appear before it has been fetched")
+  assert.doesNotMatch(
+    html,
+    /unavailable/i,
+    "before any click, this must read as 'not analyzed yet', not as a failed analysis",
+  )
+})
+
+/** Stub fetch by URL substring, so /api/health and /api/chat-db/analyze can be answered differently. */
+function stubFetchRoutes(
+  routes: Record<string, () => { ok: boolean; status?: number; json: () => Promise<unknown> }>,
+) {
+  const original = globalThis.fetch
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input.toString()
+    const key = Object.keys(routes).find((candidate) => url.includes(candidate))
+    if (!key) {
+      throw new Error(`unstubbed fetch in test: ${url}`)
+    }
+    return routes[key]()
+  }) as unknown as typeof fetch
+  return () => {
+    globalThis.fetch = original
+  }
+}
+
+test("Re-measuring clears a stale conversation breakdown rather than leaving it beside a fresh headline", async () => {
+  // health-panel.tsx's measure() must clear `buckets` at its top: otherwise a
+  // fresh measurement renders above a breakdown fetched before it, naming
+  // conversations that may since have been deleted in Cursor.
+  const restoreFetch = stubFetchRoutes({
+    "/api/chat-db/analyze": () => ({ ok: true, json: async () => ({ buckets: BUCKETS }) }),
+    "/api/health": () => ({ ok: true, json: async () => seededReport(2_000) }),
+  })
+  try {
+    render(<HealthPanel />)
+    fireEvent.click(screen.getByRole("button", { name: "Measure this install" }))
+    await screen.findByRole("button", { name: "Analyze conversations" })
+
+    fireEvent.click(screen.getByRole("button", { name: "Analyze conversations" }))
+    await screen.findByText(/Untouched 3\+ weeks/)
+
+    fireEvent.click(screen.getByRole("button", { name: "Re-measure" }))
+    // Compare a boolean, not the queried node itself: a raw DOM/happy-dom
+    // node handed to assert.equal is fine while the assertion holds, but if
+    // it ever genuinely fails, node:assert tries to util.inspect the node to
+    // build a diff, and a live DOM node's circular object graph is
+    // catastrophic to inspect — this measurably hung and then OOM'd
+    // (RangeError: Array buffer allocation failed) when the assertion was
+    // deliberately made to fail during development of this test.
+    assert.equal(
+      screen.queryByText(/Untouched 3\+ weeks/) === null,
+      true,
+      "the stale breakdown must be cleared synchronously on click, not left up while re-measuring",
+    )
+    // Let the second measurement's fetch settle before the test tears down.
+    await waitFor(() => screen.getByRole("button", { name: "Re-measure" }))
+  } finally {
+    restoreFetch()
+  }
+})
+
+test("An analyze failure is shown as unavailable, distinguishable from never having clicked", async () => {
+  // /api/chat-db/analyze fails closed to { buckets: null } for every failure
+  // (locked database, cap exceeded, corrupt file) rather than a non-ok
+  // status, so the panel must treat a null result as a failure too, not
+  // silently render nothing indistinguishable from the pre-click state.
+  const restoreFetch = stubFetchRoutes({
+    "/api/chat-db/analyze": () => ({ ok: true, json: async () => ({ buckets: null }) }),
+    "/api/health": () => ({ ok: true, json: async () => seededReport(2_000) }),
+  })
+  try {
+    render(<HealthPanel />)
+    fireEvent.click(screen.getByRole("button", { name: "Measure this install" }))
+    await screen.findByRole("button", { name: "Analyze conversations" })
+
+    fireEvent.click(screen.getByRole("button", { name: "Analyze conversations" }))
+    await screen.findByText(/unavailable/i)
+
+    assert.equal(
+      screen.queryByText(/Untouched/) === null,
+      true,
+      "a failed analysis must never render a partial breakdown",
+    )
+  } finally {
+    restoreFetch()
+  }
 })
 
 test("ChatDbHeadline reports true database size, free space, and conversation count", () => {
@@ -397,8 +504,13 @@ test("ChatDbHeadline reports true database size, free space, and conversation co
     <ChatDbHeadline chatDb={{ bytes: 19_120_795_648, freeBytes: 1_236_992, conversations: 1627 }} />,
   )
   assert.match(html, /17\.8 GB/, "pageCount x pageSize is the true database size")
-  assert.match(html, /1,?627 conversations/)
+  assert.match(html, /1,?627 top-level conversations/, "the count excludes subagents, and must say so")
   assert.match(html, /1\.2 MB/, "reclaimable free pages are worth naming")
+  assert.match(
+    html,
+    /write-ahead log/i,
+    "the headline's own size differs from the file-size finding shown elsewhere on the panel, and must say why",
+  )
   // Unanchored substring matches above would still pass if the exact size
   // were rendered as "~17.8 GB" — the opposite honesty failure from the
   // sampled sizes: this number is exact and must never read as an estimate.

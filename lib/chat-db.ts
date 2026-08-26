@@ -24,6 +24,12 @@ export type ChatDbStats = {
  * query can still overrun. This is a real limitation, not a guarantee.
  */
 export const CHEAP_CAP_MS = 2_000
+/**
+ * This budget is checked independently inside `readConversationCounts` and
+ * `readConversationSizes` — each reader starts its own timer. The two calls
+ * made per `/api/chat-db/analyze` request can therefore together take up to
+ * roughly 2x this value; the constant bounds each reader, not the request.
+ */
 export const ANALYZE_CAP_MS = 30_000
 
 /** Conversations ranked and sampled. The tail is long and uniformly small. */
@@ -76,7 +82,8 @@ export async function readChatDbStats(path: string): Promise<ChatDbStats | null>
       }))
 
     return { pageCount, pageSize, freePages, conversations }
-  } catch {
+  } catch (caught) {
+    console.warn("readChatDbStats: failed to read chat database", caught)
     return null
   } finally {
     db?.close()
@@ -94,6 +101,13 @@ export type ConversationCount = { id: string; messages: number }
  * composer id between the first and second colon. Same failure contract as
  * the other readers: null on any missing/corrupt/locked database or an
  * exhausted budget, never a partial answer.
+ *
+ * The `instr(substr(key, 10), ':') > 0` guard excludes a malformed key with
+ * no second colon (e.g. `bubbleId:x`). Without it, `instr(...) - 1` goes
+ * negative and SQLite's negative-length `substr` returns the character
+ * BEFORE the start position instead of an empty string — here, the `:` that
+ * terminates `bubbleId:` — so every such row would be silently grouped
+ * together under the phantom id `":"`.
  */
 export async function readConversationCounts(path: string): Promise<ConversationCount[] | null> {
   const started = Date.now()
@@ -103,7 +117,8 @@ export async function readConversationCounts(path: string): Promise<Conversation
     const rows = db
       .prepare(
         "SELECT substr(key, 10, instr(substr(key, 10), ':') - 1) AS id, COUNT(*) AS n " +
-          "FROM cursorDiskKV WHERE key LIKE 'bubbleId:%' GROUP BY id",
+          "FROM cursorDiskKV WHERE key LIKE 'bubbleId:%' AND instr(substr(key, 10), ':') > 0 " +
+          "GROUP BY id",
       )
       .all() as Record<string, unknown>[]
 
@@ -116,7 +131,8 @@ export async function readConversationCounts(path: string): Promise<Conversation
     return rows
       .filter((row) => typeof row.id === "string" && row.id.length > 0)
       .map((row) => ({ id: String(row.id), messages: Number(row.n) }))
-  } catch {
+  } catch (caught) {
+    console.warn("readConversationCounts: failed to read chat database", caught)
     return null
   } finally {
     db?.close()
@@ -160,6 +176,16 @@ export type ConversationSize = {
  *
  * A conversation with fewer rows than SAMPLE_ROWS is measured in full: LIMIT
  * simply returns every row it has.
+ *
+ * `length(value)` is cast to BLOB before measuring. SQLite's `length()`
+ * returns *characters* for a TEXT value and only bytes for a genuine BLOB;
+ * the `value` column is declared BLOB, but SQLite's type affinity does not
+ * actually convert stored values, and every sampled bubble in a real
+ * database comes back as TEXT. Left uncast, every multi-byte character
+ * (accents, emoji, CJK) undercounts its own byte length, understating every
+ * size this module reports. `CAST(value AS BLOB)` forces a byte count
+ * regardless of the stored type affinity, and is a no-op when the value
+ * already is a BLOB.
  */
 export async function readConversationSizes(
   path: string,
@@ -171,7 +197,7 @@ export async function readConversationSizes(
     db = new DatabaseSync(path, { readOnly: true })
     const countOf = db.prepare("SELECT COUNT(*) AS n FROM cursorDiskKV WHERE key >= ? AND key < ?")
     const meanOf = db.prepare(
-      "SELECT AVG(length(value)) AS a FROM (" +
+      "SELECT AVG(length(CAST(value AS BLOB))) AS a FROM (" +
         "SELECT value FROM cursorDiskKV WHERE key >= ? AND key < ? ORDER BY key LIMIT ?" +
         ")",
     )
@@ -197,7 +223,8 @@ export async function readConversationSizes(
       sizes.push({ id, messages, sampledMeanBytes: Math.round(Number(mean ?? 0)) })
     }
     return sizes
-  } catch {
+  } catch (caught) {
+    console.warn("readConversationSizes: failed to read chat database", caught)
     return null
   } finally {
     db?.close()
