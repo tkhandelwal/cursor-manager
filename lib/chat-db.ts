@@ -1,0 +1,80 @@
+import { DatabaseSync } from "node:sqlite"
+
+export type ChatDbConversation = {
+  id: string
+  lastUpdatedAt: number
+  isArchived: boolean
+  isSubagent: boolean
+}
+
+export type ChatDbStats = {
+  pageCount: number
+  pageSize: number
+  freePages: number
+  conversations: ChatDbConversation[]
+}
+
+/**
+ * Budgets, deliberately separate from `lib/measure.ts`'s MAX_MS: they bound
+ * different work and one must be free to change without moving the other.
+ *
+ * Note what these can and cannot do. `node:sqlite` is synchronous and offers no
+ * interrupt, and GROUP BY computes fully before yielding a first row, so the
+ * budget is checked BETWEEN queries, not within one. A single pathological
+ * query can still overrun. This is a real limitation, not a guarantee.
+ */
+export const CHEAP_CAP_MS = 2_000
+export const ANALYZE_CAP_MS = 30_000
+
+/** Conversations ranked and sampled. The tail is long and uniformly small. */
+export const RANKED_LIMIT = 20
+/** Messages sampled per ranked conversation, strided across its whole life. */
+export const SAMPLE_ROWS = 400
+
+function scalar(db: DatabaseSync, sql: string): number {
+  return Number(Object.values(db.prepare(sql).get() as Record<string, unknown>)[0])
+}
+
+/**
+ * Page geometry and conversation metadata: two queries, about a tenth of a
+ * second, no value bytes read.
+ *
+ * Returns null rather than a partial answer for any failure — missing file,
+ * corrupt file, locked database, missing table, or an exhausted budget. A
+ * partial total must never be presented as complete.
+ */
+export async function readChatDbStats(path: string): Promise<ChatDbStats | null> {
+  const started = Date.now()
+  let db: DatabaseSync | undefined
+  try {
+    db = new DatabaseSync(path, { readOnly: true })
+    const pageCount = scalar(db, "PRAGMA page_count")
+    const pageSize = scalar(db, "PRAGMA page_size")
+    const freePages = scalar(db, "PRAGMA freelist_count")
+
+    if (Date.now() - started > CHEAP_CAP_MS) {
+      return null
+    }
+
+    const rows = db
+      .prepare(
+        "SELECT composerId, lastUpdatedAt, isArchived, isSubagent FROM composerHeaders",
+      )
+      .all() as Record<string, unknown>[]
+
+    const conversations = rows
+      .filter((row) => typeof row.composerId === "string" && Number.isFinite(Number(row.lastUpdatedAt)))
+      .map((row) => ({
+        id: String(row.composerId),
+        lastUpdatedAt: Number(row.lastUpdatedAt),
+        isArchived: Boolean(Number(row.isArchived)),
+        isSubagent: Boolean(Number(row.isSubagent)),
+      }))
+
+    return { pageCount, pageSize, freePages, conversations }
+  } catch {
+    return null
+  } finally {
+    db?.close()
+  }
+}
