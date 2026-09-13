@@ -62,7 +62,7 @@ Agent-generated drafts may take hours. Live KYC, legal-entity formation, tax or 
 
 - Repository records: `docs/ARC-STATUS.md`, the applicable checklists, and gate records.
 - CI: tests (including `lib/evidence.test.ts`), lint, and build. `npm run evidence` is the same metadata check, runnable on its own. It does not approve gates or fail unsigned stages.
-- Branch protection: require CI, review by the named human role, and disallow agent merges.
+- Branch protection: live GitHub ruleset `main-conductor-protection` (id `23189136`) requires a pull request and the `verify` CI check, and blocks force-push/deletion on `main`. Required review count is 0 (solo maintainer). Agents must not merge; a token for `tkhandelwal` can still do so. Record: `docs/gates/BRANCH-PROTECTION.md`.
 - Cursor rule: `.cursor/rules/pipeline-gates.mdc` guides conductor work but cannot enforce security or branch policy.
 
 The optional Session Guard dashboard and chat-side Canvas are companions, not pipeline state or product hosting.

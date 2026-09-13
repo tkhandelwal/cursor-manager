@@ -45,6 +45,10 @@ export const REQUIRED_ARTIFACTS: RequiredArtifact[] = [
     mustInclude: ["Named human merger", "APPROVED", "WAITING", "SUPERSEDED"],
   },
   {
+    path: "docs/gates/BRANCH-PROTECTION.md",
+    mustInclude: ["main-conductor-protection", "23189136", "verify"],
+  },
+  {
     path: ".github/pull_request_template.md",
     mustInclude: ["Gate record", "Named human merger"],
   },
