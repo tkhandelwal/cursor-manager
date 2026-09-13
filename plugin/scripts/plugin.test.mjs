@@ -86,3 +86,12 @@ test("the /session-status command is wired to status.mjs", () => {
   assert.match(command, /scripts\/status\.mjs/)
   assert.ok(existsSync(join(scriptsDir, "status.mjs")))
 })
+
+test("the /conductor command starts or resumes from git records", () => {
+  const command = read("commands/conductor.md")
+  assert.match(command, /name:\s*conductor/)
+  assert.match(command, /GATE-RECORD/)
+  assert.match(command, /intake/i)
+  assert.match(command, /do not sign gates/i)
+  assert.match(command, /Do not resubmit/)
+})

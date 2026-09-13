@@ -14,9 +14,9 @@ The [zero-to-hero product conductor](docs/PIPELINE.md) guides a founder or produ
 - **Commercial** for anything offered publicly, free or paid.
 - **Regulated** for health, finance, government, children, high-impact decisions, or enterprise trust obligations.
 
-Start with the [intake profiles and risk tiers](docs/checklists/profiles.md). Git gate records—not chat approval—advance the lifecycle. Agents draft and verify; humans sign gates, merge releases, and enable production.
+Run **`/conductor`** in Agent chat to start or resume a run from git records. Start with the [intake profiles and risk tiers](docs/checklists/profiles.md). Git gate records—not chat approval—advance the lifecycle. Agents draft and verify; humans sign gates, merge releases, and enable production.
 
-This is currently a repository operating model, not new plugin UX. The existing Directory listing remains unchanged; do not resubmit it.
+The existing Directory listing remains unchanged; do not resubmit it.
 
 ## Install
 
@@ -71,6 +71,7 @@ what it does and why. Plain `git` never needs it.
 | `/memory-cleanup` | Walk **Delete Old Chats**, **GC Agent KV Blobs**, Process Explorer |
 | `/rotate-chat` | 5-bullet handoff, then Cmd/Ctrl+N |
 | `/session-status` | Report tracked-chat count vs the cap via `scripts/status.mjs` |
+| `/conductor` | Start or resume a human-gated product run from git records |
 
 ## Settings in Cursor but not in the UI
 

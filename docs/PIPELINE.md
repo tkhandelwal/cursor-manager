@@ -6,7 +6,7 @@ Cursor Manager is the score, not a plugin dispatcher. Use relevant installed ski
 
 ## Start a run
 
-Create `docs/runs/<spec-id>/`, copy `docs/gates/GATE-RECORD.md` into it, and complete intake before accepting later artifacts. For a product in another repository, copy `.cursor/rules/pipeline-gates.mdc` there and scope its globs to that product's run records and source tree.
+In Agent chat, run **`/conductor`**. It reads git records, asks for intake if missing, and resumes the current unsigned stage. Create `docs/runs/<spec-id>/`, copy `docs/gates/GATE-RECORD.md` into it, and complete intake before accepting later artifacts. For a product in another repository, copy `.cursor/rules/pipeline-gates.mdc` there and scope its globs to that product's run records and source tree.
 
 1. Product class: `plugin-only`, `free-web`, `paid-web`, `mobile-iap`, `marketplace-extension`, `b2b-enterprise`, `internal-tool`, or `prototype`.
 2. Risk tier: T0–T3.
