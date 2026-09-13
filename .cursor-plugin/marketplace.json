@@ -1,0 +1,15 @@
+{
+  "name": "cursor-manager",
+  "owner": {
+    "name": "Tanuj Khandelwal"
+  },
+  "metadata": {
+    "description": "A personal Cursor productivity plugin for healthier agent sessions, memory cleanup, and verified power-user settings."
+  },
+  "plugins": [
+    {
+      "name": "cursor-manager",
+      "source": "plugin"
+    }
+  ]
+}

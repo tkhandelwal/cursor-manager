@@ -1,10 +1,14 @@
 {
   "name": "cursor-manager",
+  "displayName": "Cursor Manager",
   "version": "1.0.0",
   "description": "Cursor on steroids: hidden settings, memory cleanup, 5-agent cap, and rotate-chat reminders.",
   "author": {
-    "name": "Cursor Manager"
+    "name": "Tanuj Khandelwal"
   },
-  "keywords": ["memory", "agents", "hooks", "hygiene"],
-  "license": "MIT"
+  "homepage": "https://github.com/tkhandelwal/cursor-manager",
+  "repository": "https://github.com/tkhandelwal/cursor-manager",
+  "license": "MIT",
+  "keywords": ["cursor", "memory", "agents", "hooks", "productivity"],
+  "logo": "assets/logo.svg"
 }

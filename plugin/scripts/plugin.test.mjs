@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url"
 
 const scriptsDir = dirname(fileURLToPath(import.meta.url))
 const pluginRoot = dirname(scriptsDir)
+const repoRoot = dirname(pluginRoot)
 
 function read(relativePath) {
   return readFileSync(join(pluginRoot, relativePath), "utf8")
@@ -14,9 +15,38 @@ function read(relativePath) {
 test("plugin.json declares the expected manifest fields", () => {
   const manifest = JSON.parse(read(".cursor-plugin/plugin.json"))
   assert.equal(manifest.name, "cursor-manager")
+  assert.equal(manifest.displayName, "Cursor Manager")
   assert.match(manifest.version, /^\d+\.\d+\.\d+$/)
   assert.equal(typeof manifest.description, "string")
   assert.ok(manifest.description.length > 0)
+  assert.equal(manifest.author.name, "Tanuj Khandelwal")
+  assert.equal(manifest.repository, "https://github.com/tkhandelwal/cursor-manager")
+  assert.equal(manifest.homepage, "https://github.com/tkhandelwal/cursor-manager")
+  assert.equal(manifest.license, "MIT")
+  assert.ok(manifest.logo)
+  assert.ok(existsSync(join(pluginRoot, manifest.logo)), `missing logo: ${manifest.logo}`)
+})
+
+test("repository marketplace manifest exposes one installable plugin", () => {
+  const marketplace = JSON.parse(
+    readFileSync(join(repoRoot, ".cursor-plugin", "marketplace.json"), "utf8"),
+  )
+
+  assert.equal(marketplace.name, "cursor-manager")
+  assert.equal(marketplace.owner.name, "Tanuj Khandelwal")
+  assert.equal(marketplace.plugins.length, 1)
+  assert.equal(marketplace.plugins[0].name, "cursor-manager")
+  assert.equal(marketplace.plugins[0].source, "plugin")
+})
+
+test("repository includes marketplace-facing license and plugin usage docs", () => {
+  const license = readFileSync(join(repoRoot, "LICENSE"), "utf8")
+  const pluginReadme = read("README.md")
+
+  assert.match(license, /MIT License/)
+  assert.match(license, /Copyright \(c\) 2026 Tanuj Khandelwal/)
+  assert.match(pluginReadme, /Install from Cursor/i)
+  assert.match(pluginReadme, /optional companion/i)
 })
 
 test("every hook command points at a script file that exists", () => {

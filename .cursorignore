@@ -1,0 +1,55 @@
+# Cursor indexing exclusions — generated for this repository stack
+
+# VCS and editor caches
+.git/
+.vs/
+.idea/
+.history/
+.localhistory/
+
+# Logs, test output, and generated reports
+**/*.log
+**/*.tmp
+**/*.binlog
+**/coverage/
+**/TestResults/
+**/test-results/
+**/playwright-report/
+**/reports/
+
+# Local secrets and machine-specific configuration
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.sample
+!**/.env.template
+**/*.pfx
+**/*.p12
+**/*.pem
+**/*.key
+**/*.snk
+**/*.user
+**/*.suo
+**/appsettings.*.local.json
+
+# Runtime databases and large generated artifacts
+**/*.db
+**/*.db-*
+**/*.sqlite
+**/*.sqlite3
+**/*.dmp
+**/*.dump
+**/*.core
+**/*.pdb
+**/*.nupkg
+**/*.snupkg
+
+# Node.js and web frameworks
+**/node_modules/
+**/.next/
+**/.nuxt/
+**/.angular/
+**/.turbo/
+**/.vite/
+**/dist/
+**/build/
