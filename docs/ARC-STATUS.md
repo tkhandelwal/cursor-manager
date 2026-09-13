@@ -9,7 +9,7 @@ This file is the source of truth for the conductor rollout. A completed implemen
 1. **Directory plugin — complete.** Cursor Manager is listed at [cursor.directory/plugins/cursor-manager](https://cursor.directory/plugins/cursor-manager). Recheck only; do not resubmit.
 2. **Profiled SSDLC documentation — complete locally.** The universal ten-stage spine, T0–T3 tiers, profiles, capability flags, checklists, and gate record are documented.
 3. **Scoped conductor policy — complete locally.** The opt-in Cursor rule and PR template document human gates, CI, and branch protection. Rules remain policy, not a security boundary.
-4. **Pilot run — next.** Execute one conventional/non-AI run and one AI + commercial run; verify activation, typed N/A, halt-and-reopen intake, and irreducible waits.
+4. **Pilot run — complete locally.** Conventional/non-AI and AI + commercial dry-runs passed activation, typed N/A, halt-and-reopen intake, Stage 6 AI entry, money controls, regulated Health activation, and irreducible-wait assertions. No human gate was signed.
 5. **Optional product UX — deferred.** Canvas remains a planning/executive artifact. The Session Guard dashboard remains optional. Do not add a second dashboard or Canvas product UI in the first slice.
 6. **Commercialize Cursor Manager — deferred.** The Directory plugin stays free. Evaluate sponsorship or a paid tier only after the pilot.
 
@@ -19,11 +19,13 @@ This file is the source of truth for the conductor rollout. A completed implemen
 - `docs/checklists/profiles.md`
 - `docs/checklists/commercializable-app.md`
 - `docs/checklists/ai-assurance.md`
+- `docs/checklists/regulated.md`
 - `docs/gates/GATE-RECORD.md`
 - `.github/pull_request_template.md`
 - `.cursor/rules/pipeline-gates.mdc`
 - README conductor entry
 - Quality gates: `npm run lint`, `npm test` (220 passed), and `npm run build` passed on 2026-09-13.
+- Pilot evidence: `docs/runs/PILOT-CONVENTIONAL-PLUGIN/PILOT-REPORT.md` and `docs/runs/PILOT-AI-COMMERCIAL/PILOT-REPORT.md`.
 
 ## Open / deferred
 

@@ -10,6 +10,16 @@ Complete this checklist at stage 0. Re-open intake whenever the specification or
 - Named human merger:
 - Date:
 
+## Product class definitions
+
+- `plugin-only`: command, rule, hook, or skill delivered inside a host, with no separately hosted customer application. A Directory-listed command/rule/skill bundle stays `plugin-only`.
+- `marketplace-extension`: a packaged extension with its own executable UI/code whose host marketplace distribution, permissions, review, or commerce is the primary product concern.
+- `free-web` / `paid-web`: separately hosted browser product without/with paid access.
+- `mobile-iap`: mobile product using app-store purchases.
+- `b2b-enterprise`: enterprise selling motion with contractual trust requirements.
+- `internal-tool`: restricted to one organization and not offered publicly.
+- `prototype`: evaluation artifact with no public or production users.
+
 ## Risk tier
 
 Select one:
@@ -17,7 +27,7 @@ Select one:
 - [ ] **T0 — prototype/internal dogfood:** no public users; short evidence is acceptable.
 - [ ] **T1 — public free:** full core evidence and public-product obligations.
 - [ ] **T2 — paid/accounts:** T1 plus users and/or money controls.
-- [ ] **T3 — high impact:** T2 plus applicable regulated pack and stronger assurance.
+- [ ] **T3 — high impact:** T2 plus an applicable regulated pack and stronger assurance. Health, finance, government, children, employment/credit decisions, or similarly consequential recommendations require T3. Enterprise trust alone may remain T2 when it adds contractual controls but no high-impact use.
 
 Risk tier changes evidence depth, not the ten-stage lifecycle.
 
@@ -66,6 +76,8 @@ Mark each yes/no and provide a reason for no when ambiguity exists:
 - [ ] Mobile IAP
 - [ ] Marketplace/Directory listing
 - [ ] SSO or DPA
+
+`Public UI` means a graphical surface offered to external users, including web, mobile, desktop, or custom extension views. Host-rendered slash-command text with no custom interactive view does not activate it. Accessibility requirements still apply to any UI the product owns.
 
 ## Approval
 

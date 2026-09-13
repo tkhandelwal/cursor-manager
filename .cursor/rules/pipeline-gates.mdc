@@ -14,7 +14,7 @@ alwaysApply: false
 
 Apply this rule only when the user explicitly starts or resumes a conductor run, or when working with the matched lifecycle records. It does not govern unrelated Cursor Manager maintenance.
 
-- Read `docs/PIPELINE.md`, `docs/checklists/profiles.md`, the run's gate record, and `docs/ARC-STATUS.md` before changing stage state.
+- Read `docs/PIPELINE.md`, `docs/checklists/profiles.md`, any active commercial/AI/regulated checklist, the run's gate record, and `docs/ARC-STATUS.md` before changing stage state.
 - Complete intake first: product class, T0–T3 risk tier, active profiles, capability flags, spec ID, PM, and named human merger.
 - Do not begin work for stage N+1 without an `APPROVED` human-signed row for stage N.
 - Treat the recorded product class, T0–T3 risk tier, profiles, and capability flags as the scope contract.

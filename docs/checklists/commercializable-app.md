@@ -95,4 +95,18 @@ Required when the `hosting` flag is on.
 
 ## Platform-specific rows
 
-These are conditional and require a typed N/A reason when off: mobile IAP / RevenueCat, marketplace review, Cursor Directory listing, SSO, DPA, HIPAA, SOC 2, COPPA, government authorization, VPAT/ACR, tenant branding, and paid Cursor Manager tier.
+These are conditional and require a typed N/A reason when off: mobile IAP / RevenueCat, SSO, DPA, tenant branding, and paid Cursor Manager tier. Regulated obligations use `regulated.md`.
+
+### Marketplace or Cursor Directory
+
+Required when the `Marketplace/Directory listing` flag is on.
+
+| Stage | Requirement | Status | Evidence / N/A reason |
+| --- | --- | --- | --- |
+| 4 | Host permissions, install scope, update path, and supply-chain threats are modeled |  |  |
+| 6 | Manifest, assets, license, support URL, and install/uninstall behavior are verified |  |  |
+| 7 | Package contents and every declared command, hook, rule, skill, permission, and asset are tested |  |  |
+| 8 | Listing copy matches shipped behavior; review status and owner are recorded |  |  |
+| 9 | Compatibility, support, rating/feedback, and host-policy changes have owners |  |  |
+
+An existing approved listing is evidence. Recheck it when release behavior or metadata changes; do not resubmit an unchanged listing.

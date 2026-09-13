@@ -11,7 +11,7 @@ Each active row requires `PASS`, `WAITING`, or `BLOCKED` and an evidence path. A
 | 2 | Harm taxonomy records severity, likelihood, affected party, mitigation, and residual-risk owner |  |  |
 | 2 | High-impact automated decisions have a named human review and appeal path |  |  |
 | 3 | Every training, tuning, retrieval, and evaluation corpus has provenance, license, purpose, retention, and PII classification |  |  |
-| 3 | Held-out evaluation set exists before implementation or tuning begins |  |  |
+| 3 | Held-out evaluation set exists before stage 6 implementation or tuning begins |  |  |
 | 3 | Leakage and contamination risks between training/tuning and holdout data are addressed |  |  |
 | 4 | Threat model covers direct and indirect prompt injection, retrieval poisoning, sensitive-data disclosure, model extraction, denial of wallet/service, tool abuse, and excessive agency |  |  |
 | 5 | Model/provider choice, trust boundary, data-use terms, fallback, and portability decision are recorded |  |  |
@@ -19,7 +19,7 @@ Each active row requires `PASS`, `WAITING`, or `BLOCKED` and an evidence path. A
 | 5 | Model-path kill switch is separate from the application kill switch |  |  |
 | 5 | Tool calls use allowlists, least privilege, bounded inputs/outputs, and confirmation for consequential actions |  |  |
 | 6 | Model, system prompt, templates, tools, retrieval configuration, and evaluation dataset versions are traceable to the release |  |  |
-| 6 | Evaluation harness and pass/fail thresholds are committed before tuning starts |  |  |
+| 6 entry | Evaluation harness and pass/fail thresholds are committed before any stage 6 implementation or tuning starts |  |  |
 | 6 | Model output is treated as untrusted input before rendering, execution, storage, or tool use |  |  |
 | 7 | Functional quality, hallucination, refusal, safety, latency, and cost are measured against the held-out set |  |  |
 | 7 | Red-team suite covers jailbreaks, injection, exfiltration, poisoning, unsafe tools, and domain harms |  |  |

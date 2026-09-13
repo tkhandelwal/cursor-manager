@@ -14,7 +14,7 @@ Create `docs/runs/<spec-id>/`, copy `docs/gates/GATE-RECORD.md` into it, and com
 4. Capability flags: users, PII/telemetry, money, email, public UI, hosting, IAP, Directory listing, SSO/DPA.
 5. Spec ID, PM, and named human merger.
 
-Definitions and activation rules live in `docs/checklists/profiles.md`. An unmarked skip of a core row is a defect. A profile or flag row may be N/A only with a typed reason.
+Definitions and activation rules live in `docs/checklists/profiles.md`; regulated evidence lives in `docs/checklists/regulated.md`. An unmarked skip of a core row is a defect. A profile or flag row may be N/A only with a typed reason.
 
 ## Lifecycle and gates
 
@@ -37,6 +37,8 @@ Record every accepted transition in the run-specific `docs/runs/<spec-id>/GATE-R
 ## Sequencing
 
 Stages 1–5 are serial. After stage 5, implementation and the test-mode commercial skeleton may run in parallel, subject to the five-local-agent cap. The skeleton can establish test-mode billing, legal-document source, support inbox, DNS plan, and scrubbed observability; it cannot claim live approval.
+
+When AI is active, stage 6 cannot start until stage 3 has an accepted held-out evaluation set and the evaluation harness/pass-fail thresholds are committed. Supplying them does not replace the stage 5 human approval.
 
 Stage 10 returns to stage 3 when data, models, prompts, or processors change. Other changes return to stage 5 unless the risk owner selects an earlier stage.
 
