@@ -11,9 +11,9 @@ This file is the source of truth for the conductor rollout. A completed implemen
 3. **Scoped conductor policy — complete locally.** The opt-in Cursor rule and PR template document human gates, CI, and branch protection. Rules remain policy, not a security boundary.
 4. **Pilot run — complete locally.** Conventional/non-AI and AI + commercial dry-runs passed activation, typed N/A, halt-and-reopen intake, Stage 6 AI entry, money controls, regulated Health activation, and irreducible-wait assertions. No human gate was signed.
 5. **Conductor command — complete locally.** Opt-in `/conductor` starts or resumes a run from git records. Policy only; not a security boundary. Do not resubmit the Directory listing.
-6. **Evidence automation — pending.** Validate required artifacts and gate metadata in CI without treating policy as enforcement.
+6. **Evidence automation — complete locally.** `npm run evidence` and `npm test` validate required artifacts and gate-record metadata. Unsigned stages still pass; the check is not a human-gate substitute.
 7. **Optional product UX — deferred.** Canvas remains a planning/executive artifact. The Session Guard dashboard remains optional. Do not add a second dashboard or Canvas product UI.
-8. **Commercialize Cursor Manager — deferred.** The Directory plugin stays free. Evaluate sponsorship or a paid tier only after evidence automation.
+8. **Commercialize Cursor Manager — deferred.** The Directory plugin stays free. Sponsorship or a paid tier remains an evaluation, not this step.
 
 ## First-slice evidence
 
@@ -26,7 +26,8 @@ This file is the source of truth for the conductor rollout. A completed implemen
 - `.github/pull_request_template.md`
 - `.cursor/rules/pipeline-gates.mdc`
 - README conductor entry
-- Quality gates: `npm run lint` and `npm test` (221 passed) on 2026-09-13.
+- Quality gates: `npm run lint`, `npm test`, and `npm run evidence`.
+- Evidence check: `lib/evidence.ts`, `lib/evidence-cli.ts`, `lib/evidence.test.ts`.
 - Pilot evidence: `docs/runs/PILOT-CONVENTIONAL-PLUGIN/PILOT-REPORT.md` and `docs/runs/PILOT-AI-COMMERCIAL/PILOT-REPORT.md`.
 - Command: `plugin/commands/conductor.md`.
 
@@ -35,5 +36,5 @@ This file is the source of truth for the conductor rollout. A completed implemen
 - Branch-protection settings are repository-host configuration and must be verified separately.
 - Legal documents must come from counsel or a named legal-document provider; the conductor does not invent final legal text.
 - Live KYC, legal formation, tax/bank registration, DNS propagation, store review, procurement, counsel review, and external penetration tests remain irreducible waits.
-- Canvas product UI, evidence automation, Cursor Manager billing, and Directory resubmission remain deferred.
+- Canvas product UI, Cursor Manager billing, and Directory resubmission remain deferred.
 - The local five-agent cap is this repository’s convention, not a Cursor Cloud platform limit.
