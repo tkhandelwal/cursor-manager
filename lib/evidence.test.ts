@@ -53,6 +53,7 @@ test("required artifacts are named paths with content markers", () => {
   const paths = REQUIRED_ARTIFACTS.map((artifact) => artifact.path)
   assert.ok(paths.includes("docs/PIPELINE.md"))
   assert.ok(paths.includes("docs/gates/GATE-RECORD.md"))
+  assert.ok(paths.includes("docs/gates/BRANCH-PROTECTION.md"))
   assert.ok(paths.includes(".github/workflows/ci.yml"))
   assert.ok(paths.includes("plugin/commands/conductor.md"))
   for (const artifact of REQUIRED_ARTIFACTS) {

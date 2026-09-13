@@ -29,12 +29,13 @@ This file is the source of truth for the conductor rollout. A completed implemen
 - Quality gates: `npm run lint`, `npm test`, and `npm run evidence`.
 - Evidence check: `lib/evidence.ts`, `lib/evidence-cli.ts`, `lib/evidence.test.ts`.
 - Pilot evidence: `docs/runs/PILOT-CONVENTIONAL-PLUGIN/PILOT-REPORT.md` and `docs/runs/PILOT-AI-COMMERCIAL/PILOT-REPORT.md`.
-- Command: `plugin/commands/conductor.md`.
+- Branch protection: `docs/gates/BRANCH-PROTECTION.md` and [ruleset 23189136](https://github.com/tkhandelwal/cursor-manager/rules/23189136).
 
 ## Open / deferred
 
-- Branch-protection settings are repository-host configuration and must be verified separately.
 - Legal documents must come from counsel or a named legal-document provider; the conductor does not invent final legal text.
+- The live GitHub ruleset cannot stop an agent that holds the `tkhandelwal` token from merging. That remains policy, not a security boundary.
+- A dedicated `npm run evidence` workflow step still needs a token with the `workflow` scope.
 - Live KYC, legal formation, tax/bank registration, DNS propagation, store review, procurement, counsel review, and external penetration tests remain irreducible waits.
 - Canvas product UI, Cursor Manager billing, and Directory resubmission remain deferred.
 - The local five-agent cap is this repository’s convention, not a Cursor Cloud platform limit.
