@@ -8,6 +8,20 @@ This project is unrelated to the PyPI package also named `cursor-manager`.
 
 ## Install
 
+One install, one setup command:
+
+1. Open [Cursor Manager in Cursor Directory](https://cursor.directory/plugins/cursor-manager).
+2. Select **Add to Cursor** and install for **User** scope.
+3. Run **`/steroids`** in Agent chat.
+
+That installs the hooks, rule, skill, and commands. The web dashboard in this
+repository is an optional advanced companion; you do not need to install or run
+it to use Cursor Manager.
+
+### Local development install
+
+Only contributors testing an unpublished checkout need this:
+
 ```bash
 git clone https://github.com/tkhandelwal/cursor-manager.git
 cd cursor-manager
@@ -15,9 +29,8 @@ chmod +x scripts/install-plugin.sh
 ./scripts/install-plugin.sh
 ```
 
-Reload Window → **Customize → Plugins** → enable **cursor-manager** (user scope).
-
-Then run **`/steroids`** in Agent chat to merge hidden `settings.json` keys and print the UI-only checklist.
+Then run **Developer: Reload Window** and enable `cursor-manager` under
+**Customize → Plugins**.
 
 ### If you will run `gh` against this repo
 
@@ -88,9 +101,11 @@ Full table and file-based config: [`plugin/recommended/SETTINGS.md`](plugin/reco
 
 Plugins cannot write `settings.json` for you without the agent. They cannot open or delete IDE chats.
 
-## Session Guard web app
+## Optional Session Guard dashboard
 
-A local Next.js dashboard for the policies this plugin enforces. It never touches Cursor directly — it's a control panel that simulates the cap/rotation rules and generates the config you paste into Cursor.
+This advanced local dashboard is not required for the plugin. It never touches
+Cursor directly; it previews the cap/rotation policies and generates
+configuration for users who want to customize them.
 
 ```bash
 npm install

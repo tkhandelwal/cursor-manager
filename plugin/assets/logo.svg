@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">Cursor Manager</title>
+  <rect width="512" height="512" rx="112" fill="#0f1115"/>
+  <path d="M256 76 410 165v178l-154 89-154-89V165z" fill="#181c23" stroke="#d7ff3f" stroke-width="20"/>
+  <path d="M317 178a104 104 0 1 0 0 156" fill="none" stroke="#f5f7fa" stroke-linecap="round" stroke-width="34"/>
+  <path d="m225 198 31 72 31-72 30 142h-34l-10-58-17 42-17-42-10 58h-34z" fill="#d7ff3f"/>
+</svg>
