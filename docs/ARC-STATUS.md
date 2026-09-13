@@ -1,0 +1,34 @@
+# Cursor Manager delivery status
+
+Updated: 2026-09-13
+
+This file is the source of truth for the conductor rollout. A completed implementation step requires repository evidence and the relevant gate record; chat agreement alone does not advance it.
+
+## Agreed delivery plan
+
+1. **Directory plugin — complete.** Cursor Manager is listed at [cursor.directory/plugins/cursor-manager](https://cursor.directory/plugins/cursor-manager). Recheck only; do not resubmit.
+2. **Profiled SSDLC documentation — complete locally.** The universal ten-stage spine, T0–T3 tiers, profiles, capability flags, checklists, and gate record are documented.
+3. **Scoped conductor policy — complete locally.** The opt-in Cursor rule and PR template document human gates, CI, and branch protection. Rules remain policy, not a security boundary.
+4. **Pilot run — next.** Execute one conventional/non-AI run and one AI + commercial run; verify activation, typed N/A, halt-and-reopen intake, and irreducible waits.
+5. **Optional product UX — deferred.** Canvas remains a planning/executive artifact. The Session Guard dashboard remains optional. Do not add a second dashboard or Canvas product UI in the first slice.
+6. **Commercialize Cursor Manager — deferred.** The Directory plugin stays free. Evaluate sponsorship or a paid tier only after the pilot.
+
+## First-slice evidence
+
+- `docs/PIPELINE.md`
+- `docs/checklists/profiles.md`
+- `docs/checklists/commercializable-app.md`
+- `docs/checklists/ai-assurance.md`
+- `docs/gates/GATE-RECORD.md`
+- `.github/pull_request_template.md`
+- `.cursor/rules/pipeline-gates.mdc`
+- README conductor entry
+- Quality gates: `npm run lint`, `npm test` (220 passed), and `npm run build` passed on 2026-09-13.
+
+## Open / deferred
+
+- Branch-protection settings are repository-host configuration and must be verified separately.
+- Legal documents must come from counsel or a named legal-document provider; the conductor does not invent final legal text.
+- Live KYC, legal formation, tax/bank registration, DNS propagation, store review, procurement, counsel review, and external penetration tests remain irreducible waits.
+- Canvas product UI, a conductor command, evidence automation, Cursor Manager billing, and Directory resubmission are outside this slice.
+- The local five-agent cap is this repository’s convention, not a Cursor Cloud platform limit.

@@ -6,6 +6,18 @@ Cursor on steroids: **hidden settings** the UI does not show, **memory cleanup**
 
 This project is unrelated to the PyPI package also named `cursor-manager`.
 
+## Build a product with the conductor
+
+The [zero-to-hero product conductor](docs/PIPELINE.md) guides a founder or product manager through one human-gated secure lifecycle. Every product uses the same ten-stage core; intake adds only the profiles it needs:
+
+- **AI** for models, LLMs, embeddings, RAG, agents, or generated decisions.
+- **Commercial** for anything offered publicly, free or paid.
+- **Regulated** for health, finance, government, children, high-impact decisions, or enterprise trust obligations.
+
+Start with the [intake profiles and risk tiers](docs/checklists/profiles.md). Git gate records—not chat approval—advance the lifecycle. Agents draft and verify; humans sign gates, merge releases, and enable production.
+
+This is currently a repository operating model, not new plugin UX. The existing Directory listing remains unchanged; do not resubmit it.
+
 ## Install
 
 One install, one setup command:
