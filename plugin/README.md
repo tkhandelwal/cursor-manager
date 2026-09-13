@@ -24,5 +24,6 @@ companion, not a second install and not required for the plugin.
 - `/session-status` — show tracked chats and remaining agent capacity
 - `/rotate-chat` — generate a handoff before starting a fresh chat
 - `/hidden-settings` — apply only verified Cursor settings
+- `/conductor` — start or resume a human-gated product run from git records
 
 Source and support: https://github.com/tkhandelwal/cursor-manager

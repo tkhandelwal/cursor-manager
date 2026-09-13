@@ -1,0 +1,27 @@
+---
+description: Preserve human gates and profile evidence for product conductor runs
+globs:
+  - "docs/PIPELINE.md"
+  - "docs/ARC-STATUS.md"
+  - "docs/checklists/**"
+  - "docs/gates/**"
+  - "docs/runs/**"
+  - "customer-apps/**"
+alwaysApply: false
+---
+
+# Profiled SSDLC conductor
+
+Apply this rule only when the user explicitly starts or resumes a conductor run, or when working with the matched lifecycle records. It does not govern unrelated Cursor Manager maintenance.
+
+- Read `docs/PIPELINE.md`, `docs/checklists/profiles.md`, any active commercial/AI/regulated checklist, the run's gate record, and `docs/ARC-STATUS.md` before changing stage state.
+- Complete intake first: product class, T0–T3 risk tier, active profiles, capability flags, spec ID, PM, and named human merger.
+- Do not begin work for stage N+1 without an `APPROVED` human-signed row for stage N.
+- Treat the recorded product class, T0–T3 risk tier, profiles, and capability flags as the scope contract.
+- If a model, payment path, regulated use, PII, public UI, hosting, email, or account flow appears while its profile or flag is off, stop and re-open intake. Do not silently add or skip the controls.
+- Never mark a universal core row N/A. A profile or capability row may be N/A only when off and only with a typed reason.
+- Record external dependencies such as KYC, legal formation, tax registration, DNS propagation, store review, procurement, counsel review, and external penetration testing as `WAITING` with an owner. They are not N/A.
+- Agents may prepare commits and pull requests. Agents do not sign gates, merge `main` or release branches, accept legal terms, complete KYC, or enable production.
+- Cursor rules and skills are policy, not enforcement. CI, branch protection, and named human review remain required.
+
+For a customer product in another repository, copy this rule there and scope its `globs` to that product's run records and source tree.

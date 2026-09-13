@@ -13,6 +13,8 @@ Merge only `plugin/recommended/settings.json`. Catalog: `plugin/recommended/SETT
 
 Prefer `/hidden-settings` or `/steroids`.
 
+When the user asks to take a product from idea to launch, follow `/conductor`. Do not skip intake or sign gates.
+
 ## Missing in Cursor
 
 No JSON exists for: concurrent running-agent cap, auto-new-chat, auto-delete History, RAM limits.
