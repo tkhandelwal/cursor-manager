@@ -3,7 +3,9 @@ import { Geist, Geist_Mono } from "next/font/google"
 
 import "./globals.css"
 import { ServiceWorkerRegistrar } from "@/components/service-worker"
+import { SkipLink } from "@/components/skip-link"
 import { THEME_COLOR } from "@/lib/manifest"
+import { THEME_BOOT_SCRIPT } from "@/lib/theme"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,9 +33,15 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`dark ${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      data-theme="dark"
+      suppressHydrationWarning
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
+      </head>
       <body className="min-h-full flex flex-col bg-background text-foreground">
+        <SkipLink />
         {children}
         <ServiceWorkerRegistrar />
       </body>

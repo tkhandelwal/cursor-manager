@@ -133,6 +133,7 @@ npm run dev   # http://localhost:43127
 | Cursor tweaks | Toggle the hidden `settings.json` keys, **Import**/**Export** them, and save named **presets** |
 | Cursorignore | Build and export a `.cursorignore` from grouped, toggleable patterns |
 | Checklist | Track the UI-only controls and memory-cleanup steps that have no JSON key |
+| Appearance | Named shell themes (`dark` default, `light`, `accessible`) |
 
 Scripts: `npm run lint`, `npm test` (guard + tweaks + plugin + component tests), `npm run build`.
 
