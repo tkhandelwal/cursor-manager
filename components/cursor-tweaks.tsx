@@ -82,6 +82,7 @@ function TweakControl({
         }}
       />
       <Input
+        aria-label={`${tweak.label} value`}
         type="number"
         min={tweak.min}
         max={tweak.max}

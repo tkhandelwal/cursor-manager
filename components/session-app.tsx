@@ -92,7 +92,7 @@ function SettingRow({
         <p className="text-sm font-medium">{label}</p>
         <p className="text-xs text-muted-foreground">{hint}</p>
       </div>
-      <Switch checked={checked} onCheckedChange={onCheckedChange} />
+      <Switch aria-label={label} checked={checked} onCheckedChange={onCheckedChange} />
     </div>
   )
 }
@@ -127,6 +127,7 @@ function NumberSetting({
       </div>
       <Slider
         id={fieldId}
+        aria-label={label}
         min={min}
         max={max}
         value={[Number.isFinite(value) ? value : min]}

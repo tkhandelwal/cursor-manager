@@ -135,7 +135,8 @@ npm run dev   # http://localhost:43127
 | Checklist | Track the UI-only controls and memory-cleanup steps that have no JSON key |
 | Appearance | Named shell themes (`dark` default, `light`, `accessible`) |
 
-Scripts: `npm run lint`, `npm test` (guard + tweaks + plugin + component tests), `npm run build`.
+Scripts: `npm run lint`, `npm test` (logic + plugin + component + axe accessibility tests),
+`npm run evidence`, and `npm run build`.
 
 ## Working with `gh` on this repo
 
