@@ -28,6 +28,8 @@ This file is the source of truth for the conductor rollout. A completed implemen
 - README conductor entry
 - Quality gates: `npm run lint`, `npm test`, and `npm run evidence`.
 - Evidence check: `lib/evidence.ts`, `lib/evidence-cli.ts`, `lib/evidence.test.ts`.
+- Accessibility gate: `components/accessibility.test.tsx` runs axe WCAG A/AA checks on
+  the primary Session Guard shell in `dark`, `light`, and `accessible` themes.
 - Pilot evidence: `docs/runs/PILOT-CONVENTIONAL-PLUGIN/PILOT-REPORT.md` and `docs/runs/PILOT-AI-COMMERCIAL/PILOT-REPORT.md`.
 - Branch protection: `docs/gates/BRANCH-PROTECTION.md` and [ruleset 23189136](https://github.com/tkhandelwal/cursor-manager/rules/23189136).
 

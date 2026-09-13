@@ -8,14 +8,14 @@
     "start": "next start --hostname 0.0.0.0 --port 43127",
     "lint": "eslint",
     "evidence": "tsx lib/evidence-cli.ts",
-    "test": "tsx --import ./test/setup-dom.ts --test lib/guard.test.ts lib/tweaks.test.ts lib/cursorignore.test.ts lib/manual-steps.test.ts lib/launch-flags.test.ts lib/health.test.ts lib/cursor-paths.test.ts lib/measure.test.ts lib/manifest.test.ts lib/trend.test.ts lib/directory-samples.test.ts lib/chat-db.test.ts lib/chat-report.test.ts lib/evidence.test.ts lib/theme.test.ts components/panels.test.tsx components/interactions.test.tsx plugin/scripts/lib.test.mjs plugin/scripts/plugin.test.mjs"
+    "test": "tsx --import ./test/setup-dom.ts --test lib/guard.test.ts lib/tweaks.test.ts lib/cursorignore.test.ts lib/manual-steps.test.ts lib/launch-flags.test.ts lib/health.test.ts lib/cursor-paths.test.ts lib/measure.test.ts lib/manifest.test.ts lib/trend.test.ts lib/directory-samples.test.ts lib/chat-db.test.ts lib/chat-report.test.ts lib/evidence.test.ts lib/theme.test.ts components/accessibility.test.tsx components/panels.test.tsx components/interactions.test.tsx plugin/scripts/lib.test.mjs plugin/scripts/plugin.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.33.0",
-    "next": "16.3.2",
+    "next": "16.3.5",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "shadcn": "^4.19.0",
@@ -30,11 +30,12 @@
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "axe-core": "^4.13.0",
     "eslint": "^9",
-    "eslint-config-next": "16.3.2",
+    "eslint-config-next": "16.3.5",
     "happy-dom": "^20.11.6",
     "tailwindcss": "^4",
-    "typescript": "^5",
-    "tsx": "^4.23.12"
+    "tsx": "^4.23.12",
+    "typescript": "^5"
   }
 }
