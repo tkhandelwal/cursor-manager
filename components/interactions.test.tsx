@@ -1,12 +1,14 @@
 import assert from "node:assert/strict"
 import { afterEach, test } from "node:test"
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 
 import { IGNORE_ENTRIES } from "@/lib/cursorignore"
 import { CursorignoreGenerator } from "@/components/cursorignore-generator"
 import { ManualChecklist } from "@/components/manual-checklist"
 import { CursorTweaks } from "@/components/cursor-tweaks"
 import { LaunchFlags } from "@/components/launch-flags"
+import { ThemeSelect } from "@/components/theme-select"
+import { THEME_STORAGE_KEY } from "@/lib/theme"
 
 afterEach(() => {
   cleanup()
@@ -109,4 +111,16 @@ test("turning a launch flag back off removes it from the command", () => {
 
   fireEvent.click(toggle)
   assert.ok(screen.getByText("cursor"))
+})
+
+test("choosing Accessible appearance writes data-theme and persists it", async () => {
+  document.documentElement.removeAttribute("data-theme")
+  render(<ThemeSelect />)
+
+  fireEvent.change(screen.getByLabelText("Appearance"), { target: { value: "accessible" } })
+
+  await waitFor(() => {
+    assert.equal(document.documentElement.getAttribute("data-theme"), "accessible")
+  })
+  assert.equal(window.localStorage.getItem(THEME_STORAGE_KEY), "accessible")
 })

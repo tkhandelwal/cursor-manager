@@ -8,7 +8,7 @@
     "start": "next start --hostname 0.0.0.0 --port 43127",
     "lint": "eslint",
     "evidence": "tsx lib/evidence-cli.ts",
-    "test": "tsx --import ./test/setup-dom.ts --test lib/guard.test.ts lib/tweaks.test.ts lib/cursorignore.test.ts lib/manual-steps.test.ts lib/launch-flags.test.ts lib/health.test.ts lib/cursor-paths.test.ts lib/measure.test.ts lib/manifest.test.ts lib/trend.test.ts lib/directory-samples.test.ts lib/chat-db.test.ts lib/chat-report.test.ts lib/evidence.test.ts components/panels.test.tsx components/interactions.test.tsx plugin/scripts/lib.test.mjs plugin/scripts/plugin.test.mjs"
+    "test": "tsx --import ./test/setup-dom.ts --test lib/guard.test.ts lib/tweaks.test.ts lib/cursorignore.test.ts lib/manual-steps.test.ts lib/launch-flags.test.ts lib/health.test.ts lib/cursor-paths.test.ts lib/measure.test.ts lib/manifest.test.ts lib/trend.test.ts lib/directory-samples.test.ts lib/chat-db.test.ts lib/chat-report.test.ts lib/evidence.test.ts lib/theme.test.ts components/panels.test.tsx components/interactions.test.tsx plugin/scripts/lib.test.mjs plugin/scripts/plugin.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

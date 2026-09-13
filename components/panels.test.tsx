@@ -10,6 +10,7 @@ import { ServiceWorkerRegistrar } from "@/components/service-worker"
 import { ExportDialog } from "@/components/export-dialog"
 import { ChatDbHeadline, DormancyBuckets, HealthPanel, TotalTrendLine, TrendLine } from "@/components/health-panel"
 import { SessionApp } from "@/components/session-app"
+import { SkipLink } from "@/components/skip-link"
 import type { Trend } from "@/lib/trend"
 import type { DormancyBucket } from "@/lib/chat-report"
 
@@ -67,11 +68,19 @@ test("SessionApp renders the seeded dashboard end to end", () => {
   assert.match(html, /Session Guard/)
   assert.match(html, /Auth timeout/)
   assert.match(html, /Agents/)
+  assert.match(html, /Appearance/)
+  assert.match(html, /id="main-content"/)
   assert.match(html, /Cursor tweaks/)
   assert.match(html, /Cursorignore/)
   assert.match(html, /Launch flags/)
   assert.match(html, /Install health/)
   assert.match(html, /Activity/)
+})
+
+test("SkipLink points at main content", () => {
+  const html = renderToStaticMarkup(<SkipLink />)
+  assert.match(html, /Skip to main content/)
+  assert.match(html, /href="#main-content"/)
 })
 
 test("ServiceWorkerRegistrar server-renders to nothing and touches no browser globals", () => {

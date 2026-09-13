@@ -35,6 +35,7 @@ import { HealthPanel } from "@/components/health-panel"
 import { LaunchFlags } from "@/components/launch-flags"
 import { ManualChecklist } from "@/components/manual-checklist"
 import { ExportDialog } from "@/components/export-dialog"
+import { ThemeSelect } from "@/components/theme-select"
 import {
   addWork,
   applyRotation,
@@ -299,6 +300,7 @@ export function SessionApp() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <ThemeSelect />
           <Badge variant={running >= settings.maxConcurrentAgents ? "destructive" : "outline"}>
             <Bot />
             {running}/{settings.maxConcurrentAgents} agents
@@ -335,6 +337,7 @@ export function SessionApp() {
         </Alert>
       ) : null}
 
+      <main id="main-content" tabIndex={-1} className="flex flex-col gap-6 outline-none">
       <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
         <div className="space-y-6">
           <Card>
@@ -709,6 +712,7 @@ export function SessionApp() {
           </div>
         </CardContent>
       </Card>
+      </main>
     </div>
   )
 }
