@@ -15,4 +15,4 @@ Start or resume a product-conductor run. Git is the state store. Do the work; do
 8. Agents draft commits and PRs. Agents do not sign gates, merge `main` or release branches, accept legal terms, complete KYC, or enable production.
 9. After drafting, tell the PM which gate row they must sign, and that chat approval does not advance the stage.
 
-This command is policy, not a security control. Do not resubmit the Cursor Directory listing.
+This command is policy, not a security control. CI may run `npm run evidence` to validate artifacts and gate metadata; that check does not sign gates. Do not resubmit the Cursor Directory listing.

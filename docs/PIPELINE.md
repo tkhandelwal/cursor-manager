@@ -61,7 +61,7 @@ Agent-generated drafts may take hours. Live KYC, legal-entity formation, tax or 
 ## Enforcement
 
 - Repository records: `docs/ARC-STATUS.md`, the applicable checklists, and gate records.
-- CI: tests, lint, build, and project-specific evidence checks.
+- CI: tests (including `lib/evidence.test.ts`), lint, and build. `npm run evidence` is the same metadata check, runnable on its own. It does not approve gates or fail unsigned stages.
 - Branch protection: require CI, review by the named human role, and disallow agent merges.
 - Cursor rule: `.cursor/rules/pipeline-gates.mdc` guides conductor work but cannot enforce security or branch policy.
 

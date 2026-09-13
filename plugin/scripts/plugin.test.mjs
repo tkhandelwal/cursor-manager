@@ -94,4 +94,5 @@ test("the /conductor command starts or resumes from git records", () => {
   assert.match(command, /intake/i)
   assert.match(command, /do not sign gates/i)
   assert.match(command, /Do not resubmit/)
+  assert.match(command, /npm run evidence/)
 })
