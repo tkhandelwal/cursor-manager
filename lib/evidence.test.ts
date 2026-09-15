@@ -57,7 +57,11 @@ test("required artifacts are named paths with content markers", () => {
   assert.ok(paths.includes(".github/workflows/ci.yml"))
   assert.ok(paths.includes("plugin/commands/conductor.md"))
   const ci = REQUIRED_ARTIFACTS.find((artifact) => artifact.path === ".github/workflows/ci.yml")
-  assert.ok(ci?.mustInclude.includes("npm run evidence"))
+  assert.ok(ci, "ci.yml artifact must exist in REQUIRED_ARTIFACTS")
+  assert.ok(
+    ci.mustInclude.includes("npm run evidence"),
+    "ci.yml must require npm run evidence",
+  )
   for (const artifact of REQUIRED_ARTIFACTS) {
     assert.ok(artifact.mustInclude.length > 0, `${artifact.path} needs markers`)
   }
