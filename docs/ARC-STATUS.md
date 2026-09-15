@@ -1,6 +1,6 @@
 # Cursor Manager delivery status
 
-Updated: 2026-09-13
+Updated: 2026-09-14
 
 This file is the source of truth for the conductor rollout. A completed implementation step requires repository evidence and the relevant gate record; chat agreement alone does not advance it.
 
@@ -12,7 +12,7 @@ This file is the source of truth for the conductor rollout. A completed implemen
 4. **Pilot run — complete locally.** Conventional/non-AI and AI + commercial dry-runs passed activation, typed N/A, halt-and-reopen intake, Stage 6 AI entry, money controls, regulated Health activation, and irreducible-wait assertions. No human gate was signed.
 5. **Conductor command — complete locally.** Opt-in `/conductor` starts or resumes a run from git records. Policy only; not a security boundary. Do not resubmit the Directory listing.
 6. **Evidence automation — complete locally.** `npm run evidence` and `npm test` validate required artifacts and gate-record metadata. Unsigned stages still pass; the check is not a human-gate substitute.
-7. **Optional product UX — deferred.** Canvas remains a planning/executive artifact. The Session Guard dashboard remains optional. Do not add a second dashboard or Canvas product UI.
+7. **Optional product UX — complete locally.** Chat-side Canvas remains the planning/executive artifact. Session Guard is the optional dashboard, with in-page section navigation. Do not add a second dashboard or Canvas product UI inside the app.
 8. **Commercialize Cursor Manager — deferred.** The Directory plugin stays free. Sponsorship or a paid tier remains an evaluation, not this step.
 
 ## First-slice evidence
@@ -30,6 +30,7 @@ This file is the source of truth for the conductor rollout. A completed implemen
 - Evidence check: `lib/evidence.ts`, `lib/evidence-cli.ts`, `lib/evidence.test.ts`.
 - Accessibility gate: `components/accessibility.test.tsx` runs axe WCAG A/AA checks on
   the primary Session Guard shell in `dark`, `light`, and `accessible` themes.
+- Dashboard nav: `lib/dashboard.ts`, `components/dashboard-nav.tsx`, and region ids on each panel.
 - Pilot evidence: `docs/runs/PILOT-CONVENTIONAL-PLUGIN/PILOT-REPORT.md` and `docs/runs/PILOT-AI-COMMERCIAL/PILOT-REPORT.md`.
 - Branch protection: `docs/gates/BRANCH-PROTECTION.md` and [ruleset 23189136](https://github.com/tkhandelwal/cursor-manager/rules/23189136).
 
@@ -39,5 +40,6 @@ This file is the source of truth for the conductor rollout. A completed implemen
 - The live GitHub ruleset cannot stop an agent that holds the `tkhandelwal` token from merging. That remains policy, not a security boundary.
 - A dedicated `npm run evidence` workflow step still needs a token with the `workflow` scope.
 - Live KYC, legal formation, tax/bank registration, DNS propagation, store review, procurement, counsel review, and external penetration tests remain irreducible waits.
-- Canvas product UI, Cursor Manager billing, and Directory resubmission remain deferred.
+- Do not add Canvas product UI inside Session Guard. Chat-side Canvas is the executive companion.
+- Cursor Manager billing and Directory resubmission remain deferred.
 - The local five-agent cap is this repository’s convention, not a Cursor Cloud platform limit.

@@ -127,6 +127,7 @@ npm run dev   # http://localhost:43127
 
 | Panel | What it does |
 | --- | --- |
+| Dashboard nav | Jump to each panel from the sticky in-page section list |
 | Chats | Simulate message/time/context load and watch rotation fire |
 | Agents | Enforce the concurrent-agent cap; **pause** an agent to free a slot without losing it |
 | Policy | Tune thresholds, then **Export for plugin** (`~/.cursor/cursor-manager/settings.json`) |

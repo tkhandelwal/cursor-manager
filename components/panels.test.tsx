@@ -13,6 +13,7 @@ import { SessionApp } from "@/components/session-app"
 import { SkipLink } from "@/components/skip-link"
 import type { Trend } from "@/lib/trend"
 import type { DormancyBucket } from "@/lib/chat-report"
+import { DASHBOARD_SECTIONS } from "@/lib/dashboard"
 
 afterEach(() => {
   cleanup()
@@ -70,6 +71,12 @@ test("SessionApp renders the seeded dashboard end to end", () => {
   assert.match(html, /Agents/)
   assert.match(html, /Appearance/)
   assert.match(html, /id="main-content"/)
+  assert.match(html, /aria-label="Dashboard sections"/)
+  assert.match(html, /href="#session-chats"/)
+  assert.match(html, /href="#session-activity"/)
+  for (const section of DASHBOARD_SECTIONS) {
+    assert.match(html, new RegExp(`id="${section.id}"`))
+  }
   assert.match(html, /Cursor tweaks/)
   assert.match(html, /Cursorignore/)
   assert.match(html, /Launch flags/)

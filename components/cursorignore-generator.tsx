@@ -72,9 +72,15 @@ export function CursorignoreGenerator() {
   }
 
   return (
-    <Card>
+    <Card
+      id="session-ignore"
+      role="region"
+      aria-labelledby="session-ignore-title"
+      tabIndex={-1}
+      className="scroll-mt-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+        <CardTitle id="session-ignore-title" className="flex items-center gap-2">
           <FileCog className="size-4" />
           Cursorignore
         </CardTitle>

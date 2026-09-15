@@ -65,4 +65,4 @@ Agent-generated drafts may take hours. Live KYC, legal-entity formation, tax or 
 - Branch protection: live GitHub ruleset `main-conductor-protection` (id `23189136`) requires a pull request and the `verify` CI check, and blocks force-push/deletion on `main`. Required review count is 0 (solo maintainer). Agents must not merge; a token for `tkhandelwal` can still do so. Record: `docs/gates/BRANCH-PROTECTION.md`.
 - Cursor rule: `.cursor/rules/pipeline-gates.mdc` guides conductor work but cannot enforce security or branch policy.
 
-The optional Session Guard dashboard and chat-side Canvas are companions, not pipeline state or product hosting.
+The optional Session Guard dashboard (in-page section nav) and chat-side Canvas are companions, not pipeline state or product hosting.

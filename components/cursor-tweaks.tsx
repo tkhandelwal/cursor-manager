@@ -148,9 +148,15 @@ export function CursorTweaks() {
   }
 
   return (
-    <Card>
+    <Card
+      id="session-tweaks"
+      role="region"
+      aria-labelledby="session-tweaks-title"
+      tabIndex={-1}
+      className="scroll-mt-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+        <CardTitle id="session-tweaks-title" className="flex items-center gap-2">
           <SlidersHorizontal className="size-4" />
           Cursor tweaks
         </CardTitle>

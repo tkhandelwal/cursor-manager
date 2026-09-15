@@ -7,7 +7,10 @@ import { CursorignoreGenerator } from "@/components/cursorignore-generator"
 import { ManualChecklist } from "@/components/manual-checklist"
 import { CursorTweaks } from "@/components/cursor-tweaks"
 import { LaunchFlags } from "@/components/launch-flags"
+import { DashboardNav } from "@/components/dashboard-nav"
+import { SessionApp } from "@/components/session-app"
 import { ThemeSelect } from "@/components/theme-select"
+import { DASHBOARD_SECTIONS } from "@/lib/dashboard"
 import { THEME_STORAGE_KEY } from "@/lib/theme"
 
 afterEach(() => {
@@ -111,6 +114,31 @@ test("turning a launch flag back off removes it from the command", () => {
 
   fireEvent.click(toggle)
   assert.ok(screen.getByText("cursor"))
+})
+
+test("dashboard section nav exposes a link for every region", () => {
+  render(<DashboardNav />)
+  const nav = screen.getByRole("navigation", { name: "Dashboard sections" })
+  for (const section of DASHBOARD_SECTIONS) {
+    const link = within(nav).getByRole("link", { name: section.label })
+    assert.equal(link.getAttribute("href"), `#${section.id}`)
+  }
+})
+
+test("SessionApp current chat is marked for assistive tech", () => {
+  render(<SessionApp />)
+  const currentChat = screen.getByRole("button", { name: /Auth timeout/, current: true })
+  assert.equal(currentChat.getAttribute("aria-current"), "true")
+})
+
+test("every dashboard jump target can receive focus", () => {
+  render(<SessionApp />)
+  for (const section of DASHBOARD_SECTIONS) {
+    const target = document.getElementById(section.id)
+    assert.ok(target, `${section.id} must exist`)
+    assert.equal(target.getAttribute("tabindex"), "-1")
+    assert.equal(target.getAttribute("aria-labelledby"), `${section.id}-title`)
+  }
 })
 
 test("choosing Accessible appearance writes data-theme and persists it", async () => {
