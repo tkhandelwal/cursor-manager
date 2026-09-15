@@ -32,6 +32,7 @@ import { Switch } from "@/components/ui/switch"
 import { CursorTweaks } from "@/components/cursor-tweaks"
 import { CursorignoreGenerator } from "@/components/cursorignore-generator"
 import { DashboardNav } from "@/components/dashboard-nav"
+import { DeliveryPanel } from "@/components/delivery-panel"
 import { HealthPanel } from "@/components/health-panel"
 import { LaunchFlags } from "@/components/launch-flags"
 import { ManualChecklist } from "@/components/manual-checklist"
@@ -344,6 +345,7 @@ export function SessionApp() {
 
       <DashboardNav />
       <main id="main-content" tabIndex={-1} className="flex flex-col gap-6 outline-none">
+      <DeliveryPanel />
       <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
         <div className="space-y-6">
           <Card
