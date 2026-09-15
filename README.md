@@ -28,7 +28,8 @@ One install, one setup command:
 
 That installs the hooks, rule, skill, and commands. The web dashboard in this
 repository is an optional advanced companion; you do not need to install or run
-it to use Cursor Manager.
+it to use Cursor Manager. Its delivery panel summarizes the tracked rollout from
+`docs/ARC-STATUS.md`; it is a repository snapshot, not live pipeline state.
 
 ### Local development install
 

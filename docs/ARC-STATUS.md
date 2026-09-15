@@ -12,7 +12,7 @@ This file is the source of truth for the conductor rollout. A completed implemen
 4. **Pilot run — complete locally.** Conventional/non-AI and AI + commercial dry-runs passed activation, typed N/A, halt-and-reopen intake, Stage 6 AI entry, money controls, regulated Health activation, and irreducible-wait assertions. No human gate was signed.
 5. **Conductor command — complete locally.** Opt-in `/conductor` starts or resumes a run from git records. Policy only; not a security boundary. Do not resubmit the Directory listing.
 6. **Evidence automation — complete.** `npm run evidence` and `npm test` validate required artifacts and gate-record metadata. CI runs a dedicated `npm run evidence` step. Unsigned stages still pass; the check is not a human-gate substitute.
-7. **Optional product UX — complete locally.** Chat-side Canvas remains the planning/executive artifact. Session Guard is the optional dashboard, with in-page section navigation. Do not add a second dashboard or Canvas product UI inside the app.
+7. **Optional product UX — complete locally.** Session Guard includes in-page navigation and a native delivery snapshot. Cursor Canvas remains a separate chat-side artifact because its runtime cannot be embedded in the Next.js app.
 8. **Commercialize Cursor Manager — deferred.** The Directory plugin stays free. Sponsorship or a paid tier remains an evaluation, not this step.
 
 ## First-slice evidence
@@ -39,6 +39,6 @@ This file is the source of truth for the conductor rollout. A completed implemen
 - Legal documents must come from counsel or a named legal-document provider; the conductor does not invent final legal text.
 - The live GitHub ruleset cannot stop an agent that holds the `tkhandelwal` token from merging. That remains policy, not a security boundary.
 - Live KYC, legal formation, tax/bank registration, DNS propagation, store review, procurement, counsel review, and external penetration tests remain irreducible waits.
-- Do not add Canvas product UI inside Session Guard. Chat-side Canvas is the executive companion.
+- The native Session Guard delivery panel mirrors this record; it is a dated snapshot, not live pipeline state. Cursor Canvas remains chat-side.
 - Cursor Manager billing and Directory resubmission remain deferred.
 - The local five-agent cap is this repository’s convention, not a Cursor Cloud platform limit.
