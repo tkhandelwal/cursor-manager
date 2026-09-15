@@ -54,7 +54,7 @@ export const REQUIRED_ARTIFACTS: RequiredArtifact[] = [
   },
   {
     path: ".github/workflows/ci.yml",
-    mustInclude: ["npm test"],
+    mustInclude: ["npm test", "npm run evidence"],
   },
   {
     path: ".cursor/rules/pipeline-gates.mdc",
