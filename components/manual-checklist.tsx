@@ -43,9 +43,15 @@ export function ManualChecklist() {
   const completed = useMemo(() => completedCount(done), [done])
 
   return (
-    <Card>
+    <Card
+      id="session-checklist"
+      role="region"
+      aria-labelledby="session-checklist-title"
+      tabIndex={-1}
+      className="scroll-mt-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+        <CardTitle id="session-checklist-title" className="flex items-center gap-2">
           <ListChecks className="size-4" />
           Manual checklist
         </CardTitle>

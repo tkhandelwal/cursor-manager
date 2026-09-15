@@ -47,9 +47,15 @@ export function LaunchFlags() {
   const count = useMemo(() => enabledFlagCount(flags), [flags])
 
   return (
-    <Card>
+    <Card
+      id="session-launch"
+      role="region"
+      aria-labelledby="session-launch-title"
+      tabIndex={-1}
+      className="scroll-mt-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+        <CardTitle id="session-launch-title" className="flex items-center gap-2">
           <TerminalSquare className="size-4" />
           Launch flags
         </CardTitle>

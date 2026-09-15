@@ -31,6 +31,7 @@ import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { CursorTweaks } from "@/components/cursor-tweaks"
 import { CursorignoreGenerator } from "@/components/cursorignore-generator"
+import { DashboardNav } from "@/components/dashboard-nav"
 import { HealthPanel } from "@/components/health-panel"
 import { LaunchFlags } from "@/components/launch-flags"
 import { ManualChecklist } from "@/components/manual-checklist"
@@ -169,6 +170,7 @@ function ChatCard({
       <button
         type="button"
         onClick={onOpen}
+        aria-current={current ? "true" : undefined}
         className="min-w-0 flex-1 rounded-lg text-left transition hover:opacity-90"
       >
         <p className="font-medium">{chat.title}</p>
@@ -302,7 +304,9 @@ export function SessionApp() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <ThemeSelect />
-          <Badge variant={running >= settings.maxConcurrentAgents ? "destructive" : "outline"}>
+          <Badge
+            variant={running >= settings.maxConcurrentAgents ? "destructive" : "outline"}
+          >
             <Bot />
             {running}/{settings.maxConcurrentAgents} agents
           </Badge>
@@ -338,12 +342,19 @@ export function SessionApp() {
         </Alert>
       ) : null}
 
+      <DashboardNav />
       <main id="main-content" tabIndex={-1} className="flex flex-col gap-6 outline-none">
       <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
         <div className="space-y-6">
-          <Card>
+          <Card
+            id="session-chats"
+            role="region"
+            aria-labelledby="session-chats-title"
+            tabIndex={-1}
+            className="scroll-mt-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
             <CardHeader>
-              <CardTitle>Chats</CardTitle>
+              <CardTitle id="session-chats-title">Chats</CardTitle>
               <CardDescription>
                 Current chat stays until it hits your threshold. Older chats are deleted when a
                 new one starts.
@@ -397,9 +408,15 @@ export function SessionApp() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card
+            id="session-load"
+            role="region"
+            aria-labelledby="session-load-title"
+            tabIndex={-1}
+            className="scroll-mt-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
             <CardHeader>
-              <CardTitle>Current chat load</CardTitle>
+              <CardTitle id="session-load-title">Current chat load</CardTitle>
               <CardDescription>
                 Simulate agent work to trip the rotate rule. The clock adds one minute per second.
               </CardDescription>
@@ -459,9 +476,15 @@ export function SessionApp() {
         </div>
 
         <div className="space-y-6">
-          <Card>
+          <Card
+            id="session-policy"
+            role="region"
+            aria-labelledby="session-policy-title"
+            tabIndex={-1}
+            className="scroll-mt-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
             <CardHeader>
-              <CardTitle>Policy</CardTitle>
+              <CardTitle id="session-policy-title">Policy</CardTitle>
               <CardDescription>
                 These settings live in this browser. Cursor itself has no official agent cap or
                 auto-rotate switch — this guard is the control you asked for.
@@ -577,9 +600,15 @@ export function SessionApp() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card
+            id="session-agents"
+            role="region"
+            aria-labelledby="session-agents-title"
+            tabIndex={-1}
+            className="scroll-mt-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
             <CardHeader>
-              <CardTitle>Agents</CardTitle>
+              <CardTitle id="session-agents-title">Agents</CardTitle>
               <CardDescription>
                 Launching a sixth agent stops the oldest one. Pause an agent to free a slot without
                 losing it. Cap is {settings.maxConcurrentAgents}.
@@ -608,6 +637,7 @@ export function SessionApp() {
                           <Button
                             size="sm"
                             variant="ghost"
+                            aria-label={`Pause ${agent.name}`}
                             onClick={() => setState(pauseAgent(state, agent.id))}
                           >
                             <Pause />
@@ -617,6 +647,7 @@ export function SessionApp() {
                           <Button
                             size="sm"
                             variant="ghost"
+                            aria-label={`Resume ${agent.name}`}
                             onClick={() => setState(resumeAgent(state, settings, agent.id))}
                           >
                             <Play />
@@ -626,6 +657,7 @@ export function SessionApp() {
                         <Button
                           size="sm"
                           variant="outline"
+                          aria-label={`Stop ${agent.name}`}
                           onClick={() => setState(stopAgent(state, agent.id))}
                         >
                           Stop
@@ -658,9 +690,15 @@ export function SessionApp() {
 
       <ManualChecklist />
 
-      <Card>
+      <Card
+        id="session-activity"
+        role="region"
+        aria-labelledby="session-activity-title"
+        tabIndex={-1}
+        className="scroll-mt-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
         <CardHeader>
-          <CardTitle>Activity</CardTitle>
+          <CardTitle id="session-activity-title">Activity</CardTitle>
           <CardDescription>Rotations, caps, and deletions from this session.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

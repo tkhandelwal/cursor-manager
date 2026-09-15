@@ -200,9 +200,15 @@ export function HealthPanel() {
   const delta = report && previous ? comparableDelta(report, previous) : null
 
   return (
-    <Card>
+    <Card
+      id="session-health"
+      role="region"
+      aria-labelledby="session-health-title"
+      tabIndex={-1}
+      className="scroll-mt-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+        <CardTitle id="session-health-title" className="flex items-center gap-2">
           <Activity className="size-4" />
           Install health
         </CardTitle>
