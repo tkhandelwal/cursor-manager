@@ -5,6 +5,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 
 import { CursorTweaks } from "@/components/cursor-tweaks"
 import { CursorignoreGenerator } from "@/components/cursorignore-generator"
+import { DeliveryPanel } from "@/components/delivery-panel"
 import { LaunchFlags } from "@/components/launch-flags"
 import { ServiceWorkerRegistrar } from "@/components/service-worker"
 import { ExportDialog } from "@/components/export-dialog"
@@ -67,6 +68,7 @@ test("HealthPanel renders its heading and the heuristic disclaimer", () => {
 test("SessionApp renders the seeded dashboard end to end", () => {
   const html = renderToStaticMarkup(<SessionApp />)
   assert.match(html, /Session Guard/)
+  assert.match(html, /Delivery/)
   assert.match(html, /Auth timeout/)
   assert.match(html, /Agents/)
   assert.match(html, /Appearance/)
@@ -82,6 +84,19 @@ test("SessionApp renders the seeded dashboard end to end", () => {
   assert.match(html, /Launch flags/)
   assert.match(html, /Install health/)
   assert.match(html, /Activity/)
+})
+
+test("DeliveryPanel renders the tracked plan snapshot without implying live state", () => {
+  const html = renderToStaticMarkup(<DeliveryPanel />)
+  assert.match(html, /Product delivery/)
+  assert.match(html, /7 of 8/)
+  assert.match(html, /Snapshot from docs\/ARC-STATUS\.md/)
+  assert.equal((html.match(/Complete/g) ?? []).length, 7)
+  assert.match(html, /Evaluation deferred/)
+  assert.match(
+    html,
+    /href="https:\/\/github\.com\/tkhandelwal\/cursor-manager\/blob\/main\/docs\/ARC-STATUS\.md"/,
+  )
 })
 
 test("SkipLink points at main content", () => {
