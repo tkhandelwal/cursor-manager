@@ -32,9 +32,22 @@ function dataDir() {
   return join(homedir(), ".cursor", "cursor-manager")
 }
 
+/**
+ * Parse JSON written by any editor. A leading UTF-8 BOM is stripped first:
+ * Notepad and Windows PowerShell write one, and JSON.parse rejects it, so an
+ * exported settings file would silently fall back to the defaults.
+ */
+export function parseJson(raw, fallback) {
+  try {
+    return JSON.parse(raw.replace(/^\uFEFF/, ""))
+  } catch {
+    return fallback
+  }
+}
+
 async function readJson(path, fallback) {
   try {
-    return JSON.parse(await readFile(path, "utf8"))
+    return parseJson(await readFile(path, "utf8"), fallback)
   } catch {
     return fallback
   }
