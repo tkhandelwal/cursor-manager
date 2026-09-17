@@ -60,11 +60,18 @@ test("repository marketplace manifest exposes one installable plugin", () => {
 
 test("repository includes marketplace-facing license and plugin usage docs", () => {
   const license = readFileSync(join(repoRoot, "LICENSE"), "utf8")
+  const rootReadme = readFileSync(join(repoRoot, "README.md"), "utf8")
   const pluginReadme = read("README.md")
 
   assert.match(license, /MIT License/)
   assert.match(license, /Copyright \(c\) 2026 Tanuj Khandelwal/)
+  assert.match(rootReadme, /Cursor Manager in Cursor Directory/)
+  assert.match(rootReadme, /install-plugin\.sh/)
+  assert.match(rootReadme, /install-plugin\.ps1/)
+  assert.ok(existsSync(join(repoRoot, "scripts", "install-plugin.sh")))
+  assert.ok(existsSync(join(repoRoot, "scripts", "install-plugin.ps1")))
   assert.match(pluginReadme, /Install from Cursor/i)
+  assert.match(pluginReadme, /cursor\.directory\/plugins\/cursor-manager/)
   assert.match(pluginReadme, /optional companion/i)
 })
 
