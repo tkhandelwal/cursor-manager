@@ -192,7 +192,11 @@ test("session-start reports a state save failure while preserving hook JSON", ()
   try {
     mkdirSync(dataDir, { recursive: true })
     writeFileSync(stateFile, '{"conversations":{},"health":{"samples":[]}}\n')
-    chmodSync(stateFile, 0o444)
+    if (process.platform === "win32") {
+      chmodSync(stateFile, 0o444)
+    } else {
+      chmodSync(dataDir, 0o555)
+    }
 
     const result = runScript("session-start.mjs", { conversation_id: "new-chat" }, home)
 
@@ -202,7 +206,11 @@ test("session-start reports a state save failure while preserving hook JSON", ()
     assert.equal(readFileSync(stateFile, "utf8"), '{"conversations":{},"health":{"samples":[]}}\n')
     assert.deepEqual(readdirSync(dataDir), ["state.json"])
   } finally {
-    chmodSync(stateFile, 0o666)
+    if (process.platform === "win32") {
+      chmodSync(stateFile, 0o666)
+    } else {
+      chmodSync(dataDir, 0o755)
+    }
     rmSync(home, { recursive: true, force: true })
   }
 })
