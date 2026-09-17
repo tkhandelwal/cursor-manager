@@ -1,6 +1,7 @@
+import { randomUUID } from "node:crypto"
 import { homedir } from "node:os"
-import { mkdir, readFile, writeFile } from "node:fs/promises"
-import { join } from "node:path"
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises"
+import { dirname, join } from "node:path"
 import path from "node:path"
 
 export const DEFAULT_SETTINGS = {
@@ -13,19 +14,42 @@ export async function readStdinJson() {
   for await (const chunk of process.stdin) {
     chunks.push(chunk)
   }
-  const raw = chunks.join("").trim()
+  return parseStdinChunks(chunks)
+}
+
+export function parseStdinChunks(chunks) {
+  const raw = Buffer.concat(chunks.map((chunk) => Buffer.from(chunk))).toString("utf8").trim()
   if (!raw) {
     return {}
   }
-  try {
-    return JSON.parse(raw)
-  } catch {
-    return {}
-  }
+  return JSON.parse(raw)
 }
 
 export function writeHook(payload) {
   process.stdout.write(JSON.stringify(payload))
+}
+
+export function formatDiagnostic(action, error) {
+  const kind = error?.code ?? error?.name ?? "Error"
+  return `${action} failed (${kind})`
+}
+
+export function writeDiagnostic(message) {
+  process.stderr.write(`Cursor Manager: ${message}\n`)
+}
+
+export async function writeStatus(output, text) {
+  try {
+    await new Promise((resolve, reject) => {
+      output.write(text, (error) => (error ? reject(error) : resolve()))
+    })
+    return true
+  } catch (error) {
+    if (error?.code === "EPIPE") {
+      return false
+    }
+    throw error
+  }
 }
 
 function dataDir() {
@@ -37,37 +61,67 @@ function dataDir() {
  * Notepad and Windows PowerShell write one, and JSON.parse rejects it, so an
  * exported settings file would silently fall back to the defaults.
  */
-export function parseJson(raw, fallback) {
-  try {
-    return JSON.parse(raw.replace(/^\uFEFF/, ""))
-  } catch {
-    return fallback
-  }
+export function parseJson(raw) {
+  return JSON.parse(raw.replace(/^\uFEFF/, ""))
 }
 
-async function readJson(path, fallback) {
+export async function readJson(file, fallback) {
   try {
-    return parseJson(await readFile(path, "utf8"), fallback)
-  } catch {
-    return fallback
+    return parseJson(await readFile(file, "utf8"))
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      return fallback
+    }
+    throw error
   }
 }
 
 export async function loadSettings() {
   const file = join(dataDir(), "settings.json")
   const saved = await readJson(file, {})
+  return normalizeSettings(saved)
+}
+
+function positiveInteger(value, fallback) {
+  if (typeof value !== "number" && typeof value !== "string") {
+    return fallback
+  }
+  const parsed = Number(value)
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback
+}
+
+export function normalizeSettings(saved) {
   return {
-    maxConcurrentAgents: Number(saved.maxConcurrentAgents) || DEFAULT_SETTINGS.maxConcurrentAgents,
-    rotateAfterMessages: Number(saved.rotateAfterMessages) || DEFAULT_SETTINGS.rotateAfterMessages,
+    maxConcurrentAgents: positiveInteger(
+      saved.maxConcurrentAgents,
+      DEFAULT_SETTINGS.maxConcurrentAgents,
+    ),
+    rotateAfterMessages: positiveInteger(
+      saved.rotateAfterMessages,
+      DEFAULT_SETTINGS.rotateAfterMessages,
+    ),
   }
 }
 
 export async function loadState() {
   const file = join(dataDir(), "state.json")
   const saved = await readJson(file, { conversations: {} })
+  const conversationsAreValid =
+    saved?.conversations &&
+    typeof saved.conversations === "object" &&
+    !Array.isArray(saved.conversations)
+  const healthIsValid =
+    saved?.health === undefined ||
+    saved?.health === null ||
+    (saved.health &&
+      typeof saved.health === "object" &&
+      !Array.isArray(saved.health) &&
+      (saved.health.samples === undefined || Array.isArray(saved.health.samples)))
+  if (!conversationsAreValid || !healthIsValid) {
+    throw new TypeError("Invalid Cursor Manager state shape")
+  }
   return {
-    conversations:
-      saved.conversations && typeof saved.conversations === "object" ? saved.conversations : {},
+    conversations: saved.conversations,
     // Without this the samples written on one session start are dropped on the
     // next read, and the series never grows past one entry.
     health: {
@@ -77,9 +131,21 @@ export async function loadState() {
 }
 
 export async function saveState(state) {
-  const dir = dataDir()
+  await writeJsonAtomic(join(dataDir(), "state.json"), state)
+}
+
+export async function writeJsonAtomic(file, value) {
+  const dir = dirname(file)
+  const temporary = `${file}.${process.pid}.${randomUUID()}.tmp`
+  const serialized = `${JSON.stringify(value, null, 2)}\n`
   await mkdir(dir, { recursive: true })
-  await writeFile(join(dir, "state.json"), `${JSON.stringify(state, null, 2)}\n`)
+  try {
+    await writeFile(temporary, serialized)
+    await rename(temporary, file)
+  } catch (error) {
+    await rm(temporary, { force: true }).catch(() => {})
+    throw error
+  }
 }
 
 export function activeCount(state) {

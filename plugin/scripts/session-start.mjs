@@ -4,22 +4,50 @@ import { stat } from "node:fs/promises"
 import { homedir } from "node:os"
 
 import {
+  DEFAULT_SETTINGS,
   activeCount,
   capMessage,
   cursorDataPaths,
+  formatDiagnostic,
   loadSettings,
   loadState,
   pruneStaleConversations,
   readStdinJson,
   recordHealthSample,
   saveState,
+  writeDiagnostic,
   writeHook,
 } from "./lib.mjs"
 
-const input = await readStdinJson()
+const warnings = []
+function warn(action, error) {
+  const message = formatDiagnostic(action, error)
+  warnings.push(message)
+  writeDiagnostic(message)
+}
+
+let input = {}
+try {
+  input = await readStdinJson()
+} catch (error) {
+  warn("hook input parse", error)
+}
 const id = input.conversation_id || input.session_id
-const settings = await loadSettings()
-const stored = await loadState()
+let settings = DEFAULT_SETTINGS
+try {
+  settings = await loadSettings()
+} catch (error) {
+  warn("settings read", error)
+}
+
+let stored = { conversations: {}, health: { samples: [] } }
+let stateReadable = true
+try {
+  stored = await loadState()
+} catch (error) {
+  stateReadable = false
+  warn("state read", error)
+}
 // Chats whose sessionEnd never ran are dropped here, so a crash cannot leave
 // the count permanently above the cap.
 const state = pruneStaleConversations(stored, Date.now())
@@ -37,20 +65,28 @@ try {
 }
 
 if (id) {
-  sampled.conversations[id] = {
-    startedAt: Date.now(),
-    mode: input.composer_mode ?? "agent",
-    background: Boolean(input.is_background_agent),
+  sampled = {
+    ...sampled,
+    conversations: {
+      ...sampled.conversations,
+      [id]: {
+        startedAt: Date.now(),
+        mode: input.composer_mode ?? "agent",
+        background: Boolean(input.is_background_agent),
+      },
+    },
   }
 }
-if (id || sampled !== stored) {
+if (stateReadable && (id || sampled !== stored)) {
   try {
     await saveState(sampled)
-  } catch {
+  } catch (error) {
     // Disk full, permission error, AV lock, roaming-profile hiccup, etc. This
     // hook's contract is to hand Cursor JSON on stdout; persisting state is
     // best-effort and must never stop that from happening.
+    warn("state save", error)
   }
 }
 
-writeHook({ additional_context: capMessage(activeCount(sampled), settings) })
+const warning = warnings.length > 0 ? `Cursor Manager warning: ${warnings.join("; ")}. ` : ""
+writeHook({ additional_context: `${warning}${capMessage(activeCount(sampled), settings)}` })

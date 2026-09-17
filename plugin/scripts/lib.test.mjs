@@ -1,4 +1,7 @@
 import assert from "node:assert/strict"
+import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { test } from "node:test"
 
 import {
@@ -9,10 +12,16 @@ import {
   capMessage,
   STALE_CONVERSATION_MS,
   cursorDataPaths,
+  formatDiagnostic,
+  normalizeSettings,
   parseJson,
+  parseStdinChunks,
   pruneStaleConversations,
+  readJson,
   recordHealthSample,
   statusReport,
+  writeJsonAtomic,
+  writeStatus,
 } from "./lib.mjs"
 
 function stateWith(count) {
@@ -61,12 +70,112 @@ test("parseJson reads settings saved with a UTF-8 BOM", () => {
   // Notepad and Windows PowerShell's `Set-Content -Encoding utf8` both prepend
   // a BOM. JSON.parse rejects it, so an exported settings file silently fell
   // back to the defaults it was written to replace.
-  const settings = parseJson('\uFEFF{"maxConcurrentAgents":3}', {})
+  const settings = parseJson('\uFEFF{"maxConcurrentAgents":3}')
   assert.equal(settings.maxConcurrentAgents, 3)
 })
 
-test("parseJson falls back when the text is not JSON at all", () => {
-  assert.deepEqual(parseJson("not json", { fallback: true }), { fallback: true })
+test("parseJson surfaces malformed JSON instead of silently resetting state", () => {
+  assert.throws(() => parseJson("not json"), SyntaxError)
+})
+
+test("parseStdinChunks preserves UTF-8 characters split across buffers", () => {
+  const raw = Buffer.from('{"conversation_id":"café"}')
+  const split = raw.indexOf(0xc3) + 1
+  assert.deepEqual(parseStdinChunks([raw.subarray(0, split), raw.subarray(split)]), {
+    conversation_id: "café",
+  })
+})
+
+test("parseStdinChunks surfaces malformed hook input", () => {
+  assert.throws(() => parseStdinChunks([Buffer.from("not json")]), SyntaxError)
+})
+
+test("readJson uses the fallback only when the file does not exist", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "cursor-manager-read-"))
+  try {
+    assert.deepEqual(await readJson(join(dir, "missing.json"), { firstRun: true }), {
+      firstRun: true,
+    })
+
+    const directoryPath = join(dir, "not-a-file")
+    await mkdir(directoryPath)
+    await assert.rejects(readJson(directoryPath, { hidden: true }), (error) => {
+      assert.notEqual(error.code, "ENOENT")
+      return true
+    })
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+})
+
+test("readJson surfaces malformed files instead of returning the fallback", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "cursor-manager-malformed-"))
+  const file = join(dir, "state.json")
+  try {
+    await writeFile(file, '{"conversations":')
+    await assert.rejects(readJson(file, { conversations: {} }), SyntaxError)
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+})
+
+test("writeJsonAtomic replaces a complete file and removes its temporary file", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "cursor-manager-write-"))
+  const file = join(dir, "state.json")
+  try {
+    await writeFile(file, '{"old":true}\n')
+    await writeJsonAtomic(file, { conversations: { current: { startedAt: 1 } } })
+    assert.deepEqual(JSON.parse(await readFile(file, "utf8")), {
+      conversations: { current: { startedAt: 1 } },
+    })
+    assert.deepEqual(await readdir(dir), ["state.json"])
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+})
+
+test("normalizeSettings accepts positive integers and rejects zero explicitly", () => {
+  assert.deepEqual(normalizeSettings({ maxConcurrentAgents: "3", rotateAfterMessages: 12 }), {
+    maxConcurrentAgents: 3,
+    rotateAfterMessages: 12,
+  })
+  assert.deepEqual(normalizeSettings({ maxConcurrentAgents: 0, rotateAfterMessages: -1 }), {
+    maxConcurrentAgents: DEFAULT_SETTINGS.maxConcurrentAgents,
+    rotateAfterMessages: DEFAULT_SETTINGS.rotateAfterMessages,
+  })
+  assert.deepEqual(normalizeSettings({ maxConcurrentAgents: true, rotateAfterMessages: 2.5 }), {
+    maxConcurrentAgents: DEFAULT_SETTINGS.maxConcurrentAgents,
+    rotateAfterMessages: DEFAULT_SETTINGS.rotateAfterMessages,
+  })
+})
+
+test("formatDiagnostic reports an error class without exposing file contents", () => {
+  assert.equal(
+    formatDiagnostic("state read", Object.assign(new Error("secret path"), { code: "EACCES" })),
+    "state read failed (EACCES)",
+  )
+  assert.equal(
+    formatDiagnostic("settings parse", new SyntaxError("bad JSON")),
+    "settings parse failed (SyntaxError)",
+  )
+})
+
+test("writeStatus treats a closed output pipe as a normal early exit", async () => {
+  const output = {
+    write(_text, callback) {
+      callback(Object.assign(new Error("closed"), { code: "EPIPE" }))
+    },
+  }
+  assert.equal(await writeStatus(output, "status\n"), false)
+})
+
+test("writeStatus surfaces output failures other than EPIPE", async () => {
+  const output = {
+    write(_text, callback) {
+      callback(Object.assign(new Error("disk failed"), { code: "EIO" }))
+    },
+  }
+  await assert.rejects(writeStatus(output, "status\n"), { code: "EIO" })
 })
 
 test("pruneStaleConversations drops a conversation past the stale window", () => {
