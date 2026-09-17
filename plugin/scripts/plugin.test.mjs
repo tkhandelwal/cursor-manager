@@ -27,7 +27,13 @@ function runScript(name, input, home) {
   return spawnSync(process.execPath, [join(scriptsDir, name)], {
     input: JSON.stringify(input),
     encoding: "utf8",
-    env: { ...process.env, HOME: home, USERPROFILE: home, APPDATA: join(home, "AppData") },
+    env: {
+      ...process.env,
+      HOME: home,
+      USERPROFILE: home,
+      // Match Windows: %APPDATA% is ...\AppData\Roaming, which cursorDataPaths uses.
+      APPDATA: join(home, "AppData", "Roaming"),
+    },
   })
 }
 
@@ -218,6 +224,73 @@ test("session-start reports a state save failure while preserving hook JSON", ()
     } else {
       chmodSync(dataDir, 0o755)
     }
+    rmSync(home, { recursive: true, force: true })
+  }
+})
+
+test("pre-compact emits a user message when input and settings are valid", () => {
+  const home = mkdtempSync(join(tmpdir(), "cursor-manager-hook-"))
+  try {
+    const result = runScript(
+      "pre-compact.mjs",
+      { context_usage_percent: 87, message_count: 22 },
+      home,
+    )
+
+    assert.equal(result.status, 0, result.stderr)
+    const payload = JSON.parse(result.stdout)
+    assert.match(payload.user_message, /87% full/)
+    assert.match(payload.user_message, /22 messages/)
+    assert.doesNotMatch(payload.user_message, /warning:/)
+  } finally {
+    rmSync(home, { recursive: true, force: true })
+  }
+})
+
+test("pre-compact surfaces settings read failures without breaking hook JSON", () => {
+  const home = mkdtempSync(join(tmpdir(), "cursor-manager-hook-"))
+  const dataDir = join(home, ".cursor", "cursor-manager")
+  try {
+    mkdirSync(dataDir, { recursive: true })
+    writeFileSync(join(dataDir, "settings.json"), "{not json")
+
+    const result = runScript("pre-compact.mjs", { context_usage_percent: 90 }, home)
+
+    assert.equal(result.status, 0, result.stderr)
+    const payload = JSON.parse(result.stdout)
+    assert.match(payload.user_message, /settings read failed \(SyntaxError\)/)
+    assert.match(payload.user_message, /90% full/)
+    assert.match(result.stderr, /settings read failed \(SyntaxError\)/)
+  } finally {
+    rmSync(home, { recursive: true, force: true })
+  }
+})
+
+test("session-start still emits hook JSON when the chat database is missing", () => {
+  const home = mkdtempSync(join(tmpdir(), "cursor-manager-hook-"))
+  try {
+    const result = runScript("session-start.mjs", { conversation_id: "new-chat" }, home)
+
+    assert.equal(result.status, 0, result.stderr)
+    const payload = JSON.parse(result.stdout)
+    assert.match(payload.additional_context, /1\/5 tracked chats/)
+    assert.doesNotMatch(payload.additional_context, /failed/)
+    assert.equal(result.stderr, "")
+  } finally {
+    rmSync(home, { recursive: true, force: true })
+  }
+})
+
+test("status writes a human-readable report rather than hook JSON", () => {
+  const home = mkdtempSync(join(tmpdir(), "cursor-manager-hook-"))
+  try {
+    const result = runScript("status.mjs", {}, home)
+
+    assert.equal(result.status, 0, result.stderr)
+    assert.match(result.stdout, /Cursor Manager status/)
+    assert.match(result.stdout, /Tracked chats: 0\/5/)
+    assert.throws(() => JSON.parse(result.stdout), SyntaxError)
+  } finally {
     rmSync(home, { recursive: true, force: true })
   }
 })

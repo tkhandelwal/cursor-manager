@@ -103,9 +103,7 @@ export function normalizeSettings(saved) {
   }
 }
 
-export async function loadState() {
-  const file = join(dataDir(), "state.json")
-  const saved = await readJson(file, { conversations: {} })
+export function parseState(saved) {
   const conversationsAreValid =
     saved?.conversations &&
     typeof saved.conversations === "object" &&
@@ -128,6 +126,11 @@ export async function loadState() {
       samples: Array.isArray(saved.health?.samples) ? saved.health.samples : [],
     },
   }
+}
+
+export async function loadState() {
+  const file = join(dataDir(), "state.json")
+  return parseState(await readJson(file, { conversations: {} }))
 }
 
 export async function saveState(state) {

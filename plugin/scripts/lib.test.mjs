@@ -15,6 +15,7 @@ import {
   formatDiagnostic,
   normalizeSettings,
   parseJson,
+  parseState,
   parseStdinChunks,
   pruneStaleConversations,
   readJson,
@@ -119,6 +120,24 @@ test("readJson surfaces malformed files instead of returning the fallback", asyn
   }
 })
 
+test("parseState accepts empty conversations and fills missing health samples", () => {
+  assert.deepEqual(parseState({ conversations: {} }), {
+    conversations: {},
+    health: { samples: [] },
+  })
+  assert.deepEqual(parseState({ conversations: { a: { startedAt: 1 } }, health: {} }), {
+    conversations: { a: { startedAt: 1 } },
+    health: { samples: [] },
+  })
+})
+
+test("parseState rejects invalid conversation and health shapes", () => {
+  assert.throws(() => parseState({ conversations: null }), TypeError)
+  assert.throws(() => parseState({ conversations: [] }), TypeError)
+  assert.throws(() => parseState({ conversations: {}, health: "string" }), TypeError)
+  assert.throws(() => parseState({ conversations: {}, health: { samples: null } }), TypeError)
+})
+
 test("writeJsonAtomic replaces a complete file and removes its temporary file", async () => {
   const dir = await mkdtemp(join(tmpdir(), "cursor-manager-write-"))
   const file = join(dir, "state.json")
@@ -128,6 +147,18 @@ test("writeJsonAtomic replaces a complete file and removes its temporary file", 
     assert.deepEqual(JSON.parse(await readFile(file, "utf8")), {
       conversations: { current: { startedAt: 1 } },
     })
+    assert.deepEqual(await readdir(dir), ["state.json"])
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+})
+
+test("writeJsonAtomic removes the temp file and keeps the original when replace fails", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "cursor-manager-write-fail-"))
+  const file = join(dir, "state.json")
+  try {
+    await mkdir(file)
+    await assert.rejects(writeJsonAtomic(file, { conversations: {} }))
     assert.deepEqual(await readdir(dir), ["state.json"])
   } finally {
     await rm(dir, { recursive: true, force: true })
@@ -309,6 +340,13 @@ test("recordHealthSample returns the same state instance when the size is not fi
   const state = emptyState()
   const next = recordHealthSample(state, Number.NaN, HOUR)
   assert.equal(next, state, "nothing was sampled, so no fresh object should be allocated")
+})
+
+test("recordHealthSample returns the same state instance when the size is negative", () => {
+  const state = emptyState()
+  const next = recordHealthSample(state, -1, HOUR)
+  assert.equal(next, state)
+  assert.equal(next.health.samples.length, 0)
 })
 
 test("recordHealthSample returns the same state instance when throttled", () => {
