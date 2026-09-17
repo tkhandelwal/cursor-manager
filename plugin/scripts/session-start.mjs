@@ -9,6 +9,7 @@ import {
   cursorDataPaths,
   loadSettings,
   loadState,
+  pruneStaleConversations,
   readStdinJson,
   recordHealthSample,
   saveState,
@@ -18,7 +19,10 @@ import {
 const input = await readStdinJson()
 const id = input.conversation_id || input.session_id
 const settings = await loadSettings()
-const state = await loadState()
+const stored = await loadState()
+// Chats whose sessionEnd never ran are dropped here, so a crash cannot leave
+// the count permanently above the cap.
+const state = pruneStaleConversations(stored, Date.now())
 
 // Sampling is strictly additive to behaviour that already works: any failure
 // here must leave the hook's normal output intact. A hook that throws
@@ -39,7 +43,7 @@ if (id) {
     background: Boolean(input.is_background_agent),
   }
 }
-if (id || sampled !== state) {
+if (id || sampled !== stored) {
   try {
     await saveState(sampled)
   } catch {

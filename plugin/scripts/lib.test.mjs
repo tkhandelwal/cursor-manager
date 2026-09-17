@@ -7,8 +7,10 @@ import {
   SAMPLE_INTERVAL_MS,
   activeCount,
   capMessage,
+  STALE_CONVERSATION_MS,
   cursorDataPaths,
   parseJson,
+  pruneStaleConversations,
   recordHealthSample,
   statusReport,
 } from "./lib.mjs"
@@ -65,6 +67,53 @@ test("parseJson reads settings saved with a UTF-8 BOM", () => {
 
 test("parseJson falls back when the text is not JSON at all", () => {
   assert.deepEqual(parseJson("not json", { fallback: true }), { fallback: true })
+})
+
+test("pruneStaleConversations drops a conversation past the stale window", () => {
+  // sessionEnd never fires on a crash or force-quit, so its entry would
+  // otherwise be tracked forever and wedge the count above the cap.
+  const now = 10 * STALE_CONVERSATION_MS
+  const state = { conversations: { dead: { startedAt: now - STALE_CONVERSATION_MS - 1 } } }
+  assert.deepEqual(pruneStaleConversations(state, now).conversations, {})
+})
+
+test("pruneStaleConversations keeps a conversation inside the stale window", () => {
+  const now = 10 * STALE_CONVERSATION_MS
+  const startedAt = now - STALE_CONVERSATION_MS + 1
+  const state = { conversations: { live: { startedAt } } }
+  assert.deepEqual(pruneStaleConversations(state, now).conversations, { live: { startedAt } })
+})
+
+test("pruneStaleConversations returns the same state instance when nothing is stale", () => {
+  // session-start.mjs decides whether to write with `!== state`. Allocating a
+  // fresh object here would save on every single session start.
+  const state = { conversations: { live: { startedAt: 0 } } }
+  assert.equal(pruneStaleConversations(state, 1), state)
+})
+
+test("pruneStaleConversations drops an entry with no usable startedAt", () => {
+  // A hand-edited or pre-upgrade entry with no timestamp can never age out,
+  // which is the same permanent-lockout bug this prune exists to prevent.
+  const state = { conversations: { legacy: { mode: "agent" } } }
+  assert.deepEqual(pruneStaleConversations(state, 5 * STALE_CONVERSATION_MS).conversations, {})
+})
+
+test("pruneStaleConversations keeps an entry whose clock is in the future", () => {
+  // A backward clock jump makes startedAt look future-dated. That is a live
+  // chat with a skewed timestamp, not a dead one, so it must survive.
+  const state = { conversations: { skewed: { startedAt: 10 * STALE_CONVERSATION_MS } } }
+  assert.deepEqual(pruneStaleConversations(state, 0).conversations, {
+    skewed: { startedAt: 10 * STALE_CONVERSATION_MS },
+  })
+})
+
+test("pruneStaleConversations leaves health samples untouched", () => {
+  const state = {
+    conversations: { dead: { startedAt: 0 } },
+    health: { samples: [{ at: 1, chatDbBytes: 2 }] },
+  }
+  const next = pruneStaleConversations(state, 5 * STALE_CONVERSATION_MS)
+  assert.deepEqual(next.health.samples, [{ at: 1, chatDbBytes: 2 }])
 })
 
 const HOUR = 3_600_000
