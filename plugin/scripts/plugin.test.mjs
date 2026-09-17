@@ -27,7 +27,13 @@ function runScript(name, input, home) {
   return spawnSync(process.execPath, [join(scriptsDir, name)], {
     input: JSON.stringify(input),
     encoding: "utf8",
-    env: { ...process.env, HOME: home, USERPROFILE: home, APPDATA: join(home, "AppData") },
+    env: {
+      ...process.env,
+      HOME: home,
+      USERPROFILE: home,
+      // Match Windows: %APPDATA% is ...\AppData\Roaming, which cursorDataPaths uses.
+      APPDATA: join(home, "AppData", "Roaming"),
+    },
   })
 }
 

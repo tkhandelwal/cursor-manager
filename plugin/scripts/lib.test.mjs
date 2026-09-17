@@ -342,6 +342,13 @@ test("recordHealthSample returns the same state instance when the size is not fi
   assert.equal(next, state, "nothing was sampled, so no fresh object should be allocated")
 })
 
+test("recordHealthSample returns the same state instance when the size is negative", () => {
+  const state = emptyState()
+  const next = recordHealthSample(state, -1, HOUR)
+  assert.equal(next, state)
+  assert.equal(next.health.samples.length, 0)
+})
+
 test("recordHealthSample returns the same state instance when throttled", () => {
   const state = recordHealthSample(emptyState(), 1000, 5 * HOUR)
   const next = recordHealthSample(state, 2000, 5 * HOUR + SAMPLE_INTERVAL_MS - 1)
