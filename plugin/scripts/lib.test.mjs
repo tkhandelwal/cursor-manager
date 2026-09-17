@@ -8,6 +8,7 @@ import {
   activeCount,
   capMessage,
   cursorDataPaths,
+  parseJson,
   recordHealthSample,
   statusReport,
 } from "./lib.mjs"
@@ -52,6 +53,18 @@ test("statusReport flags the at-cap state", () => {
   const report = statusReport(stateWith(6), DEFAULT_SETTINGS)
   assert.match(report, /Tracked chats: 6\/5 \(at cap\)/)
   assert.match(report, /At cap: finish or close an older agent/)
+})
+
+test("parseJson reads settings saved with a UTF-8 BOM", () => {
+  // Notepad and Windows PowerShell's `Set-Content -Encoding utf8` both prepend
+  // a BOM. JSON.parse rejects it, so an exported settings file silently fell
+  // back to the defaults it was written to replace.
+  const settings = parseJson('\uFEFF{"maxConcurrentAgents":3}', {})
+  assert.equal(settings.maxConcurrentAgents, 3)
+})
+
+test("parseJson falls back when the text is not JSON at all", () => {
+  assert.deepEqual(parseJson("not json", { fallback: true }), { fallback: true })
 })
 
 const HOUR = 3_600_000
