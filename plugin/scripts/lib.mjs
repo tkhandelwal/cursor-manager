@@ -86,6 +86,40 @@ export function activeCount(state) {
   return Object.keys(state.conversations).length
 }
 
+/**
+ * How long a tracked chat may go without a sessionEnd before it is assumed
+ * dead. Generous against this product's own advice to rotate a chat after
+ * about 45 minutes, so a genuinely long-lived session is not dropped early.
+ */
+export const STALE_CONVERSATION_MS = 43_200_000
+
+/**
+ * Drop conversations that outlived the stale window. sessionEnd does not run
+ * when Cursor crashes or is force-quit, so without this the entry is tracked
+ * forever and the count creeps past the cap until the file is edited by hand.
+ *
+ * Pure: returns the same instance when nothing was stale, so callers can use
+ * `!==` to decide whether a write is needed.
+ */
+export function pruneStaleConversations(state, now) {
+  const conversations = state?.conversations ?? {}
+  const live = {}
+  for (const [id, entry] of Object.entries(conversations)) {
+    const startedAt = entry?.startedAt
+    // An entry with no timestamp could never age out, which is the same
+    // permanent-lockout this prune exists to prevent. A future-dated one is a
+    // live chat seen through a skewed clock, so it stays.
+    if (Number.isFinite(startedAt) && now - startedAt < STALE_CONVERSATION_MS) {
+      live[id] = entry
+    }
+  }
+
+  if (Object.keys(live).length === Object.keys(conversations).length) {
+    return state
+  }
+  return { ...state, conversations: live }
+}
+
 export function capMessage(count, settings) {
   const atCap = count >= settings.maxConcurrentAgents
   return atCap
