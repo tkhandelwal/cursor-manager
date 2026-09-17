@@ -1,6 +1,17 @@
 import assert from "node:assert/strict"
+import { spawnSync } from "node:child_process"
 import { test } from "node:test"
-import { readFileSync, readdirSync, existsSync } from "node:fs"
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs"
+import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
@@ -10,6 +21,14 @@ const repoRoot = dirname(pluginRoot)
 
 function read(relativePath) {
   return readFileSync(join(pluginRoot, relativePath), "utf8")
+}
+
+function runScript(name, input, home) {
+  return spawnSync(process.execPath, [join(scriptsDir, name)], {
+    input: JSON.stringify(input),
+    encoding: "utf8",
+    env: { ...process.env, HOME: home, USERPROFILE: home, APPDATA: join(home, "AppData") },
+  })
 }
 
 test("plugin.json declares the expected manifest fields", () => {
@@ -95,4 +114,113 @@ test("the /conductor command starts or resumes from git records", () => {
   assert.match(command, /do not sign gates/i)
   assert.match(command, /Do not resubmit/)
   assert.match(command, /npm run evidence/)
+})
+
+test("session-start surfaces malformed state without overwriting it", () => {
+  const home = mkdtempSync(join(tmpdir(), "cursor-manager-hook-"))
+  const dataDir = join(home, ".cursor", "cursor-manager")
+  const stateFile = join(dataDir, "state.json")
+  try {
+    mkdirSync(dataDir, { recursive: true })
+    writeFileSync(stateFile, '{"conversations":')
+
+    const result = runScript("session-start.mjs", { conversation_id: "new-chat" }, home)
+
+    assert.equal(result.status, 0, result.stderr)
+    assert.match(JSON.parse(result.stdout).additional_context, /state read failed \(SyntaxError\)/)
+    assert.match(result.stderr, /state read failed \(SyntaxError\)/)
+    assert.equal(readFileSync(stateFile, "utf8"), '{"conversations":')
+  } finally {
+    rmSync(home, { recursive: true, force: true })
+  }
+})
+
+test("session-start surfaces an invalid state shape without overwriting it", () => {
+  const home = mkdtempSync(join(tmpdir(), "cursor-manager-hook-"))
+  const dataDir = join(home, ".cursor", "cursor-manager")
+  const stateFile = join(dataDir, "state.json")
+  try {
+    mkdirSync(dataDir, { recursive: true })
+    writeFileSync(stateFile, '{"conversations":null}')
+
+    const result = runScript("session-start.mjs", { conversation_id: "new-chat" }, home)
+
+    assert.equal(result.status, 0, result.stderr)
+    assert.match(JSON.parse(result.stdout).additional_context, /state read failed \(TypeError\)/)
+    assert.equal(readFileSync(stateFile, "utf8"), '{"conversations":null}')
+  } finally {
+    rmSync(home, { recursive: true, force: true })
+  }
+})
+
+test("session-end reports a missing conversation identifier without breaking stdout JSON", () => {
+  const home = mkdtempSync(join(tmpdir(), "cursor-manager-hook-"))
+  try {
+    const result = runScript("session-end.mjs", {}, home)
+
+    assert.equal(result.status, 0, result.stderr)
+    assert.deepEqual(JSON.parse(result.stdout), {})
+    assert.match(result.stderr, /missing conversation identifier/)
+  } finally {
+    rmSync(home, { recursive: true, force: true })
+  }
+})
+
+test("session-end preserves malformed state while returning hook JSON", () => {
+  const home = mkdtempSync(join(tmpdir(), "cursor-manager-hook-"))
+  const dataDir = join(home, ".cursor", "cursor-manager")
+  const stateFile = join(dataDir, "state.json")
+  try {
+    mkdirSync(dataDir, { recursive: true })
+    writeFileSync(stateFile, '{"conversations":')
+
+    const result = runScript("session-end.mjs", { conversation_id: "old-chat" }, home)
+
+    assert.equal(result.status, 0, result.stderr)
+    assert.deepEqual(JSON.parse(result.stdout), {})
+    assert.match(result.stderr, /state read failed \(SyntaxError\)/)
+    assert.equal(readFileSync(stateFile, "utf8"), '{"conversations":')
+  } finally {
+    rmSync(home, { recursive: true, force: true })
+  }
+})
+
+test("session-start reports a state save failure while preserving hook JSON", () => {
+  const home = mkdtempSync(join(tmpdir(), "cursor-manager-hook-"))
+  const dataDir = join(home, ".cursor", "cursor-manager")
+  const stateFile = join(dataDir, "state.json")
+  try {
+    mkdirSync(dataDir, { recursive: true })
+    writeFileSync(stateFile, '{"conversations":{},"health":{"samples":[]}}\n')
+    chmodSync(stateFile, 0o444)
+
+    const result = runScript("session-start.mjs", { conversation_id: "new-chat" }, home)
+
+    assert.equal(result.status, 0, result.stderr)
+    assert.match(JSON.parse(result.stdout).additional_context, /state save failed/)
+    assert.match(result.stderr, /state save failed/)
+    assert.equal(readFileSync(stateFile, "utf8"), '{"conversations":{},"health":{"samples":[]}}\n')
+    assert.deepEqual(readdirSync(dataDir), ["state.json"])
+  } finally {
+    chmodSync(stateFile, 0o666)
+    rmSync(home, { recursive: true, force: true })
+  }
+})
+
+test("status reports malformed state without an uncaught stack trace", () => {
+  const home = mkdtempSync(join(tmpdir(), "cursor-manager-hook-"))
+  const dataDir = join(home, ".cursor", "cursor-manager")
+  try {
+    mkdirSync(dataDir, { recursive: true })
+    writeFileSync(join(dataDir, "state.json"), '{"conversations":')
+
+    const result = runScript("status.mjs", {}, home)
+
+    assert.equal(result.status, 1)
+    assert.equal(result.stdout, "")
+    assert.match(result.stderr, /status failed \(SyntaxError\)/)
+    assert.doesNotMatch(result.stderr, /\n\s+at /)
+  } finally {
+    rmSync(home, { recursive: true, force: true })
+  }
 })
