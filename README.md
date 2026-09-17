@@ -20,11 +20,13 @@ The existing Directory listing remains unchanged; do not resubmit it.
 
 ## Install
 
-One install, one setup command:
+Requirements: a current Cursor release and `node` on `PATH` for the lifecycle
+hook scripts. Node.js 22 is the supported contributor runtime.
 
 1. Open [Cursor Manager in Cursor Directory](https://cursor.directory/plugins/cursor-manager).
 2. Select **Add to Cursor** and install for **User** scope.
 3. Run **`/steroids`** in Agent chat.
+4. Run **`/session-status`** to verify that the plugin scripts can execute.
 
 That installs the hooks, rule, skill, and commands. The web dashboard in this
 repository is an optional advanced companion; you do not need to install or run
@@ -33,7 +35,11 @@ it to use Cursor Manager. Its delivery panel summarizes the tracked rollout from
 
 ### Local development install
 
-Only contributors testing an unpublished checkout need this:
+Only contributors testing an unpublished checkout need this. The installer
+links the checkout into Cursor, so later source edits are available after a
+window reload.
+
+macOS, Linux, or Git Bash:
 
 ```bash
 git clone https://github.com/tkhandelwal/cursor-manager.git
@@ -42,10 +48,27 @@ chmod +x scripts/install-plugin.sh
 ./scripts/install-plugin.sh
 ```
 
-Then run **Developer: Reload Window** and enable `cursor-manager` under
-**Customize → Plugins**.
+Windows PowerShell:
 
-### If you will run `gh` against this repo
+```powershell
+git clone https://github.com/tkhandelwal/cursor-manager.git
+Set-Location cursor-manager
+.\scripts\install-plugin.ps1
+```
+
+If execution policy blocks the script, use a one-run bypass rather than changing
+the machine-wide policy:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install-plugin.ps1
+```
+
+Then run **Developer: Reload Window** and enable `cursor-manager` under
+**Customize → Plugins** for User scope. Run `/session-status` in Agent chat to
+verify the hooks. If Cursor reports that `node` is unavailable, install Node.js
+22, restart Cursor, and run the verification again.
+
+### If you use multiple GitHub accounts
 
 Only needed if you are signed in to more than one GitHub account — otherwise skip
 it. Once per shell:
@@ -61,7 +84,7 @@ source scripts/gh-env.sh          # bash / Git Bash
 Without it, `gh pr` and friends can fail with a permissions error, because `gh`
 resolves its account from one machine-wide setting that any other shell can
 change. See [Working with `gh` on this repo](#working-with-gh-on-this-repo) for
-what it does and why. Plain `git` never needs it.
+what it does and why.
 
 ## Slash commands
 
@@ -122,7 +145,7 @@ Cursor directly; it previews the cap/rotation policies and generates
 configuration for users who want to customize them.
 
 ```bash
-npm install
+npm ci
 npm run dev   # http://localhost:43127
 ```
 
@@ -156,14 +179,18 @@ source scripts/gh-env.sh          # bash / Git Bash
 ```
 
 That exports `GH_TOKEN`, which overrides the active account entirely. The token
-is read from `gh`'s keyring each time and never written to disk.
+is read from `gh`'s keyring each time and never written to disk. On PowerShell,
+the helper also prefers a full Git for Windows installation; GitHub Desktop's
+stripped-down Git has no `sh.exe`, so credential helpers can otherwise fall
+through to an unrelated WSL `bash.exe`.
 
 It is **shell**-scoped, not repo-scoped: every `gh` command in that shell uses
 this account, including in other directories. Open a new shell to work on
 another account.
 
-Git itself is unaffected either way — the remote uses SSH (`github-personal`),
-which does not consult `gh` at all.
+The repository remote uses HTTPS. In a multi-account shell, source the helper
+before both `gh` operations and authenticated `git push` commands so they use
+the `tkhandelwal` account.
 
 ## Repo
 
