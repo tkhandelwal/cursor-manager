@@ -19,7 +19,14 @@ if (id && state.conversations[id]) {
   changed = true
 }
 if (changed) {
-  await saveState(state)
+  try {
+    await saveState(state)
+  } catch {
+    // Matches session-start.mjs: persisting is best-effort, but handing Cursor
+    // JSON on stdout is the contract. Throwing here would also strand the
+    // entry this hook exists to remove, which pruneStaleConversations then
+    // takes the full stale window to clear.
+  }
 }
 
 writeHook({})
